@@ -3,9 +3,21 @@
  */
 package compiler;
 
+import compiler.Lexer.Lexer;
+import compiler.Lexer.Symbol;
+import compiler.Lexer.TokenType;
+
+import java.io.StringReader;
+
 public class Compiler {
     public static void main(String[] args)
     {
-        System.out.println("Hello from the compiler !");
+        //testing with input string:
+        String testInput = "INT X";
+        Lexer lexer = new Lexer(new StringReader(testInput));
+        Symbol symbol;
+        while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
+            System.out.println(symbol);
+        }
     }
 }

@@ -26,7 +26,7 @@ public class Symbol {
     public int getColumn() {
         return column;
     }
-    @override
+    @Override
     public String toString() {
         return "<" + type + "," + value + ">";
     }
