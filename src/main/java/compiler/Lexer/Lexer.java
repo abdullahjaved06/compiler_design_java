@@ -32,8 +32,29 @@ public class Lexer {
     private boolean isAtEnd(){
         return currentChar ==-1;
     }
+    // Skip whitespace and comments
+    private void skipWhitespaceAndComments() {
+        while (!isAtEnd()) {
+            char c = peek();
 
+            // Skip whitespace (space, tab, newline, carriage return)
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+                advance();
+            }
+            // Skip comments: # until end of line
+            else if (c == '#') {
+                while (!isAtEnd() && peek() != '\n') {
+                    advance();
+                }
+            }
+            // Not whitespace or comment - stop skipping
+            else {
+                break;
+            }
+        }
+    }
     public Symbol getNextSymbol() {
+        skipWhitespaceAndComments();
         //now, only testing one character ata time.
         if (isAtEnd()){
             return new Symbol(TokenType.EOF, "",line, column);

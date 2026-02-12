@@ -13,7 +13,7 @@ public class Compiler {
     public static void main(String[] args)
     {
         //testing with input string:
-        String testInput = "INT X";
+        String testInput = "INT X # this is a comment\ny";
         Lexer lexer = new Lexer(new StringReader(testInput));
         Symbol symbol;
         while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
