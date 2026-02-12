@@ -10,11 +10,10 @@ import compiler.Lexer.TokenType;
 import java.io.StringReader;
 
 public class Compiler {
-    public static void main(String[] args)
-    {
-        //testing with input string:
-        String testInput = "INT X # this is a comment\ny";
+    public static void main(String[] args) {
+        String testInput = "INT myVar = true while Point";
         Lexer lexer = new Lexer(new StringReader(testInput));
+
         Symbol symbol;
         while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
             System.out.println(symbol);

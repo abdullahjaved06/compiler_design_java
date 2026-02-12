@@ -1,13 +1,33 @@
 package compiler.Lexer;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.HashMap;
 
 public class Lexer {
     private final Reader input;
     private int currentChar;
     private int line =1;
     private int column =0;
+    private static final java.util.Map<String, TokenType> keywords = new java.util.HashMap<>();
 
+    static {
+        keywords.put("final", TokenType.FINAL);
+        keywords.put("coll", TokenType.COLL);
+        keywords.put("def", TokenType.DEF);
+        keywords.put("for", TokenType.FOR);
+        keywords.put("while", TokenType.WHILE);
+        keywords.put("if", TokenType.IF);
+        keywords.put("else", TokenType.ELSE);
+        keywords.put("return", TokenType.RETURN);
+        keywords.put("not", TokenType.NOT);
+        keywords.put("ARRAY", TokenType.ARRAY_KEYWORD);
+        keywords.put("INT", TokenType.INT_TYPE);
+        keywords.put("FLOAT", TokenType.FLOAT_TYPE);
+        keywords.put("BOOL", TokenType.BOOL_TYPE);
+        keywords.put("STRING", TokenType.STRING_TYPE);
+        keywords.put("true", TokenType.TRUE);
+        keywords.put("false", TokenType.FALSE);
+    }
     public Lexer(Reader input) {
         this.input = input;
     }
@@ -53,17 +73,53 @@ public class Lexer {
             }
         }
     }
+
+    // Read an identifier or keyword
+    private Symbol readIdentifierOrKeyword(int startLine, int startColumn) {
+        StringBuilder sb = new StringBuilder();
+
+        // Keep reading while we see letters, digits, or underscore
+        while (!isAtEnd() && (Character.isLetterOrDigit(peek()) || peek() == '_')) {
+            sb.append(peek());
+            advance();
+        }
+
+        String text = sb.toString();
+
+        // Check if it's a keyword
+        TokenType type = keywords.get(text);
+        if (type != null) {
+            return new Symbol(type, text, startLine, startColumn);
+        }
+
+        // Check if it starts with uppercase (collection name)
+        if (Character.isUpperCase(text.charAt(0))) {
+            return new Symbol(TokenType.COLLECTION_NAME, text, startLine, startColumn);
+        }
+
+        // Regular identifier
+        return new Symbol(TokenType.IDENTIFIER, text, startLine, startColumn);
+    }
+
+    // Main method - returns the next token
     public Symbol getNextSymbol() {
         skipWhitespaceAndComments();
-        //now, only testing one character ata time.
-        if (isAtEnd()){
-            return new Symbol(TokenType.EOF, "",line, column);
+
+        if (isAtEnd()) {
+            return new Symbol(TokenType.EOF, "", line, column);
         }
-        char c = peek();
+
         int startLine = line;
         int startColumn = column;
-        advance();  // move to next character.
-        // for now, return each character as an identifier.
-        return new Symbol(TokenType.IDENTIFIER, String.valueOf(c),startLine,startColumn);
+        char c = peek();
+
+        // Identifiers and keywords start with letter or underscore
+        if (Character.isLetter(c) || c == '_') {
+            return readIdentifierOrKeyword(startLine, startColumn);
+        }
+
+        // For now, return unknown characters as errors
+        advance();
+        return new Symbol(TokenType.ERROR, String.valueOf(c), startLine, startColumn);
     }
 }
