@@ -11,7 +11,7 @@ import java.io.StringReader;
 
 public class Compiler {
     public static void main(String[] args) {
-        String testInput = "INT x = 42; if (x >= 10 && x =/= 5) { x = x + 1; }";
+        String testInput = "STRING name = \"Hello World\"; println(\"Hi\\nthere\");";
         Lexer lexer = new Lexer(new StringReader(testInput));
 
         Symbol symbol;

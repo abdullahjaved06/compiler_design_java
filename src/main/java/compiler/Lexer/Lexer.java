@@ -228,6 +228,38 @@ public class Lexer {
                 return new Symbol(TokenType.ERROR, String.valueOf(c), startLine, startColumn);
         }
     }
+    // Read a string liteiral
+    private Symbol readString(int startLine, int startColumn) {
+        StringBuilder sb = new StringBuilder();
+        advance();  // Skip opening "
+
+        while (!isAtEnd() && peek() != '"') {
+            if (peek() == '\\') {
+                // Handle escape sequences
+                advance();  // Skip backslaesh
+                if (isAtEnd()) {
+                    return new Symbol(TokenType.ERROR, "Unterminated string", startLine, startColumn);
+                }
+                switch (peek()) {
+                    case 'n':  sb.append('\n'); break;
+                    case '\\': sb.append('\\'); break;
+                    case '"':  sb.append('"');  break;
+                    default:
+                        return new Symbol(TokenType.ERROR, "Invalid escape: \\" + peek(), startLine, startColumn);
+                }
+            } else {
+                sb.append(peek());
+            }
+            advance();
+        }
+
+        if (isAtEnd()) {
+            return new Symbol(TokenType.ERROR, "Unterminated string", startLine, startColumn);
+        }
+
+        advance();  // Skip closing "
+        return new Symbol(TokenType.STRING_LITERAL, sb.toString(), startLine, startColumn);
+    }
     // Main method - returns the next token
     public Symbol getNextSymbol() {
         skipWhitespaceAndComments();
@@ -248,6 +280,11 @@ public class Lexer {
         // Numbers start with digit
         if (Character.isDigit(c)) {
             return readNumber(startLine, startColumn);
+        }
+
+        // Strings start with "
+        if (c == '"') {
+            return readString(startLine, startColumn);
         }
 
         // Everything else is an operator or punctuation
