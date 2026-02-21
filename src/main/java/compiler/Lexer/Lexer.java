@@ -100,7 +100,134 @@ public class Lexer {
         // Regular identifier
         return new Symbol(TokenType.IDENTIFIER, text, startLine, startColumn);
     }
+    //REad a numbre (integer or float)
+     private Symbol readNumber(int startLine, int startColumn) {
+        StringBuilder sb = new StringBuilder();
+        
+        // Handle leading zeros: 00342 -> 342
+        while (!isAtEnd() && peek() == '0') {
+            advance();
+            // Check what comes next
+            if (isAtEnd() || (!Character.isDigit(peek()) && peek() != '.')) {
+                // It's just "0" or "0" followed by non-digit
+                return new Symbol(TokenType.INTEGER_LITERAL, "0", startLine, startColumn);
+            }
+            if (peek() == '.') {
+                sb.append('0');
+                break;
+            }
+            // Otherwise skip the leading zero and continue
+        }
+        
+        // Read integer part
+        while (!isAtEnd() && Character.isDigit(peek())) {
+            sb.append(peek());
+            advance();
+        }
+        
+        // Check for decimal point (float)
+        if (!isAtEnd() && peek() == '.') {
+            sb.append('.');
+            advance();
+            
+            // Read fractional part
+            while (!isAtEnd() && Character.isDigit(peek())) {
+                sb.append(peek());
+                advance();
+            }
+            
+            return new Symbol(TokenType.FLOAT_LITERAL, sb.toString(), startLine, startColumn);
+        }
+        
+        // It's an integer
+        String value = sb.toString();
+        if (value.isEmpty()) {
+            value = "0";
+        }
+        return new Symbol(TokenType.INTEGER_LITERAL, value, startLine, startColumn);
+    }
 
+    // Read operatorrs and puncteuation
+    private Symbol readOperator(int startLine, int startColumn) {
+        char c = peek();
+        advance();
+
+        switch (c) {
+            // Single character operators
+            case '+': return new Symbol(TokenType.PLUS, "+", startLine, startColumn);
+            case '*': return new Symbol(TokenType.STAR, "*", startLine, startColumn);
+            case '/': return new Symbol(TokenType.SLASH, "/", startLine, startColumn);
+            case '%': return new Symbol(TokenType.PERCENT, "%", startLine, startColumn);
+            case '(': return new Symbol(TokenType.LPAREN, "(", startLine, startColumn);
+            case ')': return new Symbol(TokenType.RPAREN, ")", startLine, startColumn);
+            case '{': return new Symbol(TokenType.LBRACE, "{", startLine, startColumn);
+            case '}': return new Symbol(TokenType.RBRACE, "}", startLine, startColumn);
+            case '[': return new Symbol(TokenType.LBRACKET, "[", startLine, startColumn);
+            case ']': return new Symbol(TokenType.RBRACKET, "]", startLine, startColumn);
+            case '.': return new Symbol(TokenType.DOT, ".", startLine, startColumn);
+            case ';': return new Symbol(TokenType.SEMICOLON, ";", startLine, startColumn);
+            case ',': return new Symbol(TokenType.COMMA, ",", startLine, startColumn);
+
+            // Minus or Arrow (-)
+            case '-':
+                if (!isAtEnd() && peek() == '>') {
+                    advance();
+                    return new Symbol(TokenType.ARROW, "->", startLine, startColumn);
+                }
+                return new Symbol(TokenType.MINUS, "-", startLine, startColumn);
+
+            // Equals, Equal-Equal, or Not-Equal (=, ==, =/=)
+            case '=':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    return new Symbol(TokenType.EQUAL, "==", startLine, startColumn);
+                }
+                if (!isAtEnd() && peek() == '/') {
+                    advance();
+                    if (!isAtEnd() && peek() == '=') {
+                        advance();
+                        return new Symbol(TokenType.NOT_EQUAL, "=/=", startLine, startColumn);
+                    }
+                    return new Symbol(TokenType.ERROR, "=/", startLine, startColumn);
+                }
+                return new Symbol(TokenType.ASSIGN, "=", startLine, startColumn);
+
+            // Less or Less-Equal (<, <=)
+            case '<':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    return new Symbol(TokenType.LESS_EQUAL, "<=", startLine, startColumn);
+                }
+                return new Symbol(TokenType.LESS, "<", startLine, startColumn);
+
+            // Greater or Greater-Equal (>, >=)
+            case '>':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    return new Symbol(TokenType.GREATER_EQUAL, ">=", startLine, startColumn);
+                }
+                return new Symbol(TokenType.GREATER, ">", startLine, startColumn);
+
+            // And (&&)
+            case '&':
+                if (!isAtEnd() && peek() == '&') {
+                    advance();
+                    return new Symbol(TokenType.AND, "&&", startLine, startColumn);
+                }
+                return new Symbol(TokenType.ERROR, "&", startLine, startColumn);
+
+            // Or (||)
+            case '|':
+                if (!isAtEnd() && peek() == '|') {
+                    advance();
+                    return new Symbol(TokenType.OR, "||", startLine, startColumn);
+                }
+                return new Symbol(TokenType.ERROR, "|", startLine, startColumn);
+
+            default:
+                return new Symbol(TokenType.ERROR, String.valueOf(c), startLine, startColumn);
+        }
+    }
     // Main method - returns the next token
     public Symbol getNextSymbol() {
         skipWhitespaceAndComments();
@@ -118,8 +245,12 @@ public class Lexer {
             return readIdentifierOrKeyword(startLine, startColumn);
         }
 
-        // For now, return unknown characters as errors
-        advance();
-        return new Symbol(TokenType.ERROR, String.valueOf(c), startLine, startColumn);
+        // Numbers start with digit
+        if (Character.isDigit(c)) {
+            return readNumber(startLine, startColumn);
+        }
+
+        // Everything else is an operator or punctuation
+        return readOperator(startLine, startColumn);
     }
 }

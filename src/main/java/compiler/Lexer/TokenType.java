@@ -10,7 +10,7 @@ public enum TokenType {
 
     // === IDENTIFIERS ===
     IDENTIFIER,         // variable names: x, myVar, _count
-    COLLECTION_NAME,    // collection names: Point, Person (start with uppercase)
+    COLLECTION_NAME,    // collection names: Point, Person
 
     // === KEYWORDS ===
     FINAL,              // final
@@ -29,6 +29,38 @@ public enum TokenType {
     FLOAT_TYPE,         // FLOAT
     BOOL_TYPE,          // BOOL
     STRING_TYPE,        // STRING
+
+    // === ARITHMETIC OPERATORS ===
+    PLUS,               // +
+    MINUS,              // -
+    STAR,               // *
+    SLASH,              // /
+    PERCENT,            // %
+
+    // === COMPARISON OPERATORS ===
+    EQUAL,              // ==
+    NOT_EQUAL,          // =/=
+    LESS,               //
+    GREATER,            // >
+    LESS_EQUAL,         // <=
+    GREATER_EQUAL,      // >=
+
+    // === LOGICAL OPERATORS ===
+    AND,                // &&
+    OR,                 // ||
+
+    // === ASSIGNMENT AND PUNCTUATION ===
+    ASSIGN,             // =
+    LPAREN,             // (
+    RPAREN,             // )
+    LBRACE,             // {
+    RBRACE,             // }
+    LBRACKET,           // [
+    RBRACKET,           // ]
+    DOT,                // .
+    SEMICOLON,          // ;
+    COMMA,              // ,
+    ARROW,              // ->
 
     // === SPECIAL ===
     EOF,                // End of file
