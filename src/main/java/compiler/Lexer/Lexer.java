@@ -148,6 +148,32 @@ public class Lexer {
         }
         return new Symbol(TokenType.INTEGER_LITERAL, value, startLine, startColumn);
     }
+    // Check if next character is a digit (for .234 style floats)
+    private boolean isDigitAhead() {
+        try {
+            input.mark(1);
+            int next = input.read();
+            input.reset();
+            return next != -1 && Character.isDigit((char) next);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    // Read a float that starts with dot: .234 -> 0.234
+    private Symbol readDotFloat(int startLine, int startColumn) {
+        StringBuilder sb = new StringBuilder("0");
+        sb.append(peek());  // Add the dot
+        advance();
+
+        // Read the fractional part
+        while (!isAtEnd() && Character.isDigit(peek())) {
+            sb.append(peek());
+            advance();
+        }
+
+        return new Symbol(TokenType.FLOAT_LITERAL, sb.toString(), startLine, startColumn);
+    }
 
     // Read operatorrs and puncteuation
     private Symbol readOperator(int startLine, int startColumn) {
@@ -282,6 +308,11 @@ public class Lexer {
         // Numbers start with digit
         if (Character.isDigit(c)) {
             return readNumber(startLine, startColumn);
+        }
+
+        // Handle .234 style floats (dot followed by digit)
+        if (c == '.' && isDigitAhead()) {
+            return readDotFloat(startLine, startColumn);
         }
 
         // Strings start with "

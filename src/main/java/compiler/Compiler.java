@@ -51,12 +51,13 @@ public class Compiler {
         reader.close();
     }
     private static void runTest() {
-        String testInput = "INT x = 42;\nSTRING msg = \"Hello\";\nif (x > 10) {\n    println(msg);\n}";
-        System.out.println("Input:\n" + testInput);
+        String testInput = "FLOAT x = .234; FLOAT y = 3.14; INT z = 00567;";
+        System.out.println("Input: " + testInput);
         System.out.println("\nTokens:");
         System.out.println("--------");
 
         Lexer lexer = new Lexer(new StringReader(testInput));
+
         Symbol symbol;
         while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
             System.out.println(symbol);
