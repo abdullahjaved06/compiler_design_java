@@ -30,17 +30,19 @@ public class Lexer {
     }
     public Lexer(Reader input) {
         this.input = input;
+        advance();
     }
     private void advance() {
         try {
             currentChar = input.read();
-            column++;
-            if(currentChar == '\n'){
+            if (currentChar == '\n') {
                 line++;
-                column=0;
+                column = 0;
+            } else if (currentChar != -1) {
+                column++;
             }
-        } catch (IOException e){
-            currentChar =-1;
+        } catch (IOException e) {
+            currentChar = -1;
         }
     }
     // return the current character as char
