@@ -8,15 +8,59 @@ import compiler.Lexer.Symbol;
 import compiler.Lexer.TokenType;
 
 import java.io.StringReader;
+import java.io.Reader;
+import java.io.FileReader;
 
 public class Compiler {
     public static void main(String[] args) {
-        String testInput = "STRING name = \"Hello World\"; println(\"Hi\\nthere\");";
-        Lexer lexer = new Lexer(new StringReader(testInput));
+        if (args.length <2) {
+            System.out.println("running test instead.");
+            runTest();
+            return;
+        }
+        String mode = args[0];
+        String filepath = args[1];
+        try {
+            if(mode.equals("-lexer")) {
+                runLexer(filepath);
+            } else {
+                System.out.println("Unknown mode: " + mode);
+                System.exit(1);
+            }
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+    private static void runLexer(String filepath) throws Exception {
+        Reader reader = new FileReader(filepath);
+        Lexer lexer = new Lexer(reader);
 
+        Symbol symbol;
+        while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
+            // Stop on lexical errors
+            if (symbol.getType() == TokenType.ERROR) {
+                System.err.println("Lexical error at line " + symbol.getLine() +
+                        ", column " + symbol.getColumn() + ": " + symbol.getValue());
+                reader.close();
+                System.exit(1);
+            }
+            System.out.println(symbol);
+        }
+
+        reader.close();
+    }
+    private static void runTest() {
+        String testInput = "INT x = 42;\nSTRING msg = \"Hello\";\nif (x > 10) {\n    println(msg);\n}";
+        System.out.println("Input:\n" + testInput);
+        System.out.println("\nTokens:");
+        System.out.println("--------");
+
+        Lexer lexer = new Lexer(new StringReader(testInput));
         Symbol symbol;
         while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
             System.out.println(symbol);
         }
     }
-}
+
+    }
