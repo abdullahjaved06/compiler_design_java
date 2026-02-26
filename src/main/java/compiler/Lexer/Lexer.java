@@ -102,7 +102,7 @@ public class Lexer {
         // Regular identifier
         return new Symbol(TokenType.IDENTIFIER, text, startLine, startColumn);
     }
-    //REad a numbre (integer or float)
+    //Read a number (integer or float)
      private Symbol readNumber(int startLine, int startColumn) {
         StringBuilder sb = new StringBuilder();
         
@@ -175,7 +175,7 @@ public class Lexer {
         return new Symbol(TokenType.FLOAT_LITERAL, sb.toString(), startLine, startColumn);
     }
 
-    // Read operatorrs and puncteuation
+    // Read operators and punctuation
     private Symbol readOperator(int startLine, int startColumn) {
         char c = peek();
         advance();
@@ -256,7 +256,7 @@ public class Lexer {
                 return new Symbol(TokenType.ERROR, String.valueOf(c), startLine, startColumn);
         }
     }
-    // Read a string liteiral
+    // Read a string literal
     private Symbol readString(int startLine, int startColumn) {
         StringBuilder sb = new StringBuilder();
         advance();  // Skip opening "

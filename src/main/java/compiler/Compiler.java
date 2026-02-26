@@ -51,12 +51,69 @@ public class Compiler {
         reader.close();
     }
     private static void runTest() {
-        String testInput = "FLOAT x = .234; FLOAT y = 3.14; INT z = 00567;";
-        System.out.println("Input: " + testInput);
+        String testInput1 = """
+                final INT i = 3;
+                final FLOAT j = 3.2*5.0;
+                final INT k = i*3;
+                final STRING message = "Hello";
+                final BOOL isEmpty  = true;
+                """;
+
+        String testInput2 = """
+                coll Point {
+                    INT x;
+                    INT y;
+                }
+                coll Person {
+                    STRING name;
+                    Point location;
+                    INT[] history;
+                }""";
+
+        String testInput3 = """
+                INT a = 3;
+                INT[] c  = INT ARRAY [5] ;  # new ARRAY of length 5
+                Person d = Person("me", Point(3,7), INT ARRAY [i*2] );  # new collection
+                """;
+
+        String testInput4 = """
+                def INT square(INT v) {
+                    return v*v;
+                }
+                
+                def Point copyPoints(Point[] p) {
+                    return Point(p[0].x+p[1].x, p[0].y+p[1].y);
+                }
+                
+                def main() {
+                    INT value = read_INT();
+                    println(square(value));
+                    for (INT i; 1 -> 100; i+1) {
+                        while (value=/=3) {
+                            if (i > 10){
+                                value = value + i;
+                            } else {
+                                value = value / i;
+                            }
+                        }
+                    }
+                    i = (i+2)*2;
+                }
+                """;
+        String testInput5 = """
+                FLOAT f_1 = .879;
+                INT _p = 000123456 % 4;
+                BOOL check2 = not               (_p == 3);
+                FLOAT ans = 0;
+                if (check2 && (f_1 <= 0 || (f_1 + 1) >= 0)) {
+                    ans = 00001.234500;
+                }
+                """;
+        System.out.println("Input: " + testInput1 + testInput2 + testInput3 + testInput4 + testInput5);
         System.out.println("\nTokens:");
         System.out.println("--------");
 
-        Lexer lexer = new Lexer(new StringReader(testInput));
+        Lexer lexer = new Lexer(new StringReader(testInput1 + testInput2 + testInput3 + testInput4 + testInput5));
 
         Symbol symbol;
         while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {

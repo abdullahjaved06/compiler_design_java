@@ -40,7 +40,7 @@ public enum TokenType {
     // === COMPARISON OPERATORS ===
     EQUAL,              // ==
     NOT_EQUAL,          // =/=
-    LESS,               //
+    LESS,               // <
     GREATER,            // >
     LESS_EQUAL,         // <=
     GREATER_EQUAL,      // >=
