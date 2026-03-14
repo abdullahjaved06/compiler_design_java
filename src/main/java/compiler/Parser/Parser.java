@@ -17,5 +17,15 @@ public class Parser {
     private void advance(){
         currentSymbol = lexer.getNextSymbol();
     }
-    
+
+    private void match(TokenType type) {
+        if (currentSymbol.getType() == type) {
+            advance();
+        } else {
+            throw new RuntimeException("Syntax Error at line " + currentSymbol.getLine() +
+                                        ": Expected " + type + "but found " + currentSymbol.getType());
+
+        }
+    }
+
 }
