@@ -27,29 +27,55 @@ public class Parser {
         }
     }
 
+    /**
+     * Entry point for the parser.
+     * Collects all statements,.
+     */
     public ASTNode getAST() {
-        return parseAssignment();
+        BlockNode program = new BlockNode();
+
+        while (currentSymbol.getType() != TokenType.EOF) {
+            // We parse one statement at a time until the end of the file.
+            program.addStatement(parseStatement());
+        }
+
+        return program;
+    }
+
+    /**
+     * Decides what kind of statement to parse.
+     */
+    private ASTNode parseStatement() {
+        // Check if the current token looks like a type declaration (INT, FLOAT, etc.)
+        TokenType type = currentSymbol.getType();
+        if (type == TokenType.INT_TYPE || type == TokenType.FLOAT_TYPE ||
+                type == TokenType.STRING_TYPE || type == TokenType.BOOL_TYPE) {
+            return parseAssignment();
+        }
+
+        // Fallback for raw identifiers (e.g., re-assignment like x = 10;)
+        if (type == TokenType.IDENTIFIER) {
+            return parseAssignment();
+        }
+
+        throw new RuntimeException("Syntax Error: Unexpected token " + type + " at line " + currentSymbol.getLine());
     }
 
     private ASTNode parseAssignment() {
-        // 1. Get Type (INT)
-        String type = currentSymbol.getValue();
-        advance(); // Matches the type (INT/FLOAT/etc)
+        // Note: This logic assumes 'TYPE IDENTIFIER = EXPR;'
+        String typeStr = currentSymbol.getValue();
+        advance(); // Consume the type or identifier
 
-        // 2. Get Identifier (x)
         String id = currentSymbol.getValue();
         match(TokenType.IDENTIFIER);
 
-        // 3. Match =
         match(TokenType.ASSIGN);
 
-        // 4. Parse the WHOLE expression (this will handle 1 + 2)
         ASTNode rhs = parseExpression();
 
-        // 5. match the semicolon
         match(TokenType.SEMICOLON);
 
-        return new AssignmentNode(type, id, rhs);
+        return new AssignmentNode(typeStr, id, rhs);
     }
 
     public ASTNode parseExpression() {
@@ -57,16 +83,27 @@ public class Parser {
     }
 
     private ASTNode parseAddition() {
-        ASTNode left = parsePrimary();
+        ASTNode node = parseMultiplication();
 
-        // Loop as long as we see + or -
         while (currentSymbol.getType() == TokenType.PLUS || currentSymbol.getType() == TokenType.MINUS) {
             String op = currentSymbol.getValue();
             advance();
-            ASTNode right = parsePrimary();
-            left = new BinaryExpressionNode(op, left, right);
+            ASTNode right = parseMultiplication();
+            node = new BinaryExpressionNode(op, node, right);
         }
-        return left;
+        return node;
+    }
+
+    private ASTNode parseMultiplication() {
+        ASTNode node = parsePrimary();
+
+        while (currentSymbol.getType() == TokenType.STAR || currentSymbol.getType() == TokenType.SLASH) {
+            String op = currentSymbol.getValue();
+            advance();
+            ASTNode right = parsePrimary();
+            node = new BinaryExpressionNode(op, node, right);
+        }
+        return node;
     }
 
     private ASTNode parsePrimary() {
@@ -77,6 +114,11 @@ public class Parser {
         } else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
             ASTNode node = new IdentifierNode(currentSymbol.getValue());
             advance();
+            return node;
+        } else if (currentSymbol.getType() == TokenType.LPAREN) {
+            match(TokenType.LPAREN);
+            ASTNode node = parseExpression();
+            match(TokenType.RPAREN);
             return node;
         }
         throw new RuntimeException("Syntax Error: Unexpected symbol " + currentSymbol.getType() + " at line " + currentSymbol.getLine());

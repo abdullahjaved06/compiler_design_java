@@ -66,7 +66,7 @@ public class Compiler {
 
     private static void runTest() {
         // A simple test case to verify the Parser logic
-        String testInput = "INT x = 1 + 2;";
+        String testInput = "INT x = 5; INT y = x + 10;";
         System.out.println("Input String: " + testInput);
         System.out.println("\nGenerated AST:");
         System.out.println("--------------");
