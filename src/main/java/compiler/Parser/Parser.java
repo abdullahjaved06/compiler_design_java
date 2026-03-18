@@ -111,6 +111,10 @@ public class Parser {
             ASTNode node = new IntegerNode(currentSymbol.getValue());
             advance();
             return node;
+        } else if (currentSymbol.getType() == TokenType.STRING_LITERAL) {
+            ASTNode node = new StringNode(currentSymbol.getValue());
+            advance();
+            return node;
         } else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
             ASTNode node = new IdentifierNode(currentSymbol.getValue());
             advance();

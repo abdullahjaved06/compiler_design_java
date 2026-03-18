@@ -1,0 +1,19 @@
+# Gradle files
+.gradle/
+build/
+
+# Java compiled files
+*.class
+*.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# Operating System files
+.DS_Store
+Thumbs.db
