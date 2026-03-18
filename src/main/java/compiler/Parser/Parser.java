@@ -108,14 +108,26 @@ public class Parser {
 
     private ASTNode parsePrimary() {
         if (currentSymbol.getType() == TokenType.INTEGER_LITERAL) {
-            ASTNode node = new IntegerNode(currentSymbol.getValue());
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.INT);
             advance();
             return node;
         } else if (currentSymbol.getType() == TokenType.STRING_LITERAL) {
-            ASTNode node = new StringNode(currentSymbol.getValue());
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.STRING);
             advance();
             return node;
-        } else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
+        } else if (currentSymbol.getType() == TokenType.FLOAT_LITERAL) {
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.FLOAT);
+            advance();
+            return node;
+        } else if (currentSymbol.getType() == TokenType.TRUE) {
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.TRUE);
+            advance();
+            return node;
+        } else if (currentSymbol.getType() == TokenType.FALSE) {
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.FALSE);
+            advance();
+            return node;
+        }else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
             ASTNode node = new IdentifierNode(currentSymbol.getValue());
             advance();
             return node;
