@@ -7,11 +7,13 @@ public class BinaryExpressionNode implements ASTNode {
     private final String operator;
     private final ASTNode left;
     private final ASTNode right;
+    private final String type;
 
-    public BinaryExpressionNode(String operator, ASTNode left, ASTNode right) {
+    public BinaryExpressionNode(String operator, ASTNode left, ASTNode right, String type) {
         this.operator = operator;
         this.left = left;
         this.right = right;
+        this.type = type;
     }
 
     @Override
@@ -22,7 +24,17 @@ public class BinaryExpressionNode implements ASTNode {
         sb.append(left.print(indent));
 
         // Print the operator line
-        sb.append("\n").append(indent).append("ArithmeticOperator, ").append(operator).append("\n");
+        switch (type){
+            case "Logical":
+                sb.append("\n").append(indent).append("LogicalOperator, ").append(operator).append("\n");
+                break;
+            case "Relational":
+                sb.append("\n").append(indent).append("RelationalOperator, ").append(operator).append("\n");
+                break;
+            default:
+                sb.append("\n").append(indent).append("ArithmeticOperator, ").append(operator).append("\n");
+                break;
+        }
 
         // Print the right operand
         sb.append(right.print(indent));

@@ -73,7 +73,7 @@ public class Compiler {
                 STRING message = "Hello";\s
                 BOOL isEmpty  = true;\s
                 INT a = "Hello World"; # This is technically wrong\s
-                """;
+                BOOL c = (a / k) == k; \s""";
         System.out.println("Input String: " + testInput);
         System.out.println("\nGenerated AST:");
         System.out.println("--------------");

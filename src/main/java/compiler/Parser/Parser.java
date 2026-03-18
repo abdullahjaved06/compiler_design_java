@@ -79,17 +79,63 @@ public class Parser {
     }
 
     public ASTNode parseExpression() {
-        return parseAddition();
+        return parseLogicalOR();
+    }
+
+    private ASTNode parseLogicalOR() {
+        ASTNode node = parseLogicalAND();
+
+        while (currentSymbol.getType() == TokenType.OR) {
+            String op = currentSymbol.getValue();
+            advance();
+            ASTNode right = parseLogicalAND();
+            node = new BinaryExpressionNode(op, node, right, "Logical");
+        }
+        return node;
+    }
+
+    private ASTNode parseLogicalAND() {
+        ASTNode node = parseRelational();
+
+        while (currentSymbol.getType() == TokenType.AND) {
+            String op = currentSymbol.getValue();
+            advance();
+            ASTNode right = parseRelational();
+            node = new BinaryExpressionNode(op, node, right, "Logical");
+        }
+        return node;
+    }
+
+    private ASTNode parseRelational() {
+        ASTNode node = parseAddition();
+
+        while (currentSymbol.getType() == TokenType.EQUAL ||
+                currentSymbol.getType() == TokenType.NOT_EQUAL ||
+                currentSymbol.getType() == TokenType.LESS ||
+                currentSymbol.getType() == TokenType.LESS_EQUAL ||
+                currentSymbol.getType() == TokenType.GREATER ||
+                currentSymbol.getType() == TokenType.GREATER_EQUAL) {
+            String op = currentSymbol.getValue();
+            advance();
+            ASTNode right = parseAddition();
+            node = new BinaryExpressionNode(op, node, right, "Relational");
+        }
+        return node;
     }
 
     private ASTNode parseAddition() {
+        if (currentSymbol.getType() == TokenType.MINUS) {
+            advance();
+            return new UnaryNode("-", parseMultiplication());
+        }
+
         ASTNode node = parseMultiplication();
 
-        while (currentSymbol.getType() == TokenType.PLUS || currentSymbol.getType() == TokenType.MINUS) {
+        while (currentSymbol.getType() == TokenType.PLUS ||
+                currentSymbol.getType() == TokenType.MINUS) {
             String op = currentSymbol.getValue();
             advance();
-            ASTNode right = parseMultiplication();
-            node = new BinaryExpressionNode(op, node, right);
+            node = new BinaryExpressionNode(op, node, parseMultiplication(), "Arithmetic");
         }
         return node;
     }
@@ -97,11 +143,13 @@ public class Parser {
     private ASTNode parseMultiplication() {
         ASTNode node = parsePrimary();
 
-        while (currentSymbol.getType() == TokenType.STAR || currentSymbol.getType() == TokenType.SLASH) {
+        while (currentSymbol.getType() == TokenType.STAR ||
+                currentSymbol.getType() == TokenType.SLASH ||
+                currentSymbol.getType() == TokenType.PERCENT) {
             String op = currentSymbol.getValue();
             advance();
             ASTNode right = parsePrimary();
-            node = new BinaryExpressionNode(op, node, right);
+            node = new BinaryExpressionNode(op, node, right, "Arithmetic");
         }
         return node;
     }
