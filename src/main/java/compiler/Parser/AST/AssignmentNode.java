@@ -23,7 +23,9 @@ public class AssignmentNode implements ASTNode {
         sb.append(indent).append("Expr\n");
 
         // The type (e.g., INT)
-        sb.append(indent).append("  Type, ").append(type).append("\n");
+        if (type != null) {
+            sb.append(indent).append("  Type, ").append(type).append("\n");
+        }
 
         // The variable name (e.g., x)
         sb.append(indent).append("  Identifier, ").append(identifier).append("\n");

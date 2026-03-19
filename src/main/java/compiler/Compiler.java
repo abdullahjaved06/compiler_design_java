@@ -73,7 +73,19 @@ public class Compiler {
                 STRING message = "Hello";\s
                 BOOL isEmpty  = true;\s
                 INT a = "Hello World"; # This is technically wrong\s
-                BOOL c = (a / k) == k; \s""";
+                BOOL c = (a / k) == k;
+                while (i <= 10) {
+                    i = i + 2;
+                    if (i < 5) {
+                        i = i - 1;
+                    } else {
+                        i = i + 1;
+                    }
+                    if (i == 6) {
+                        i = 7;
+                    }
+                }
+                        \s""";
         System.out.println("Input String: " + testInput);
         System.out.println("\nGenerated AST:");
         System.out.println("--------------");

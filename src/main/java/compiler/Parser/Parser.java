@@ -53,6 +53,14 @@ public class Parser {
             return parseAssignment();
         }
 
+        if (type == TokenType.IF) {
+            return parseIfStatement();
+        }
+
+        if (type == TokenType.WHILE) {
+            return parseWhileLoop();
+        }
+
         // Fallback for raw identifiers (e.g., re-assignment like x = 10;)
         if (type == TokenType.IDENTIFIER) {
             return parseAssignment();
@@ -61,10 +69,51 @@ public class Parser {
         throw new RuntimeException("Syntax Error: Unexpected token " + type + " at line " + currentSymbol.getLine());
     }
 
+    private ASTNode parseWhileLoop() {
+        match(TokenType.WHILE);
+        match(TokenType.LPAREN);
+        ASTNode condition = parseExpression();
+        match(TokenType.RPAREN);
+        BlockNode body = parseBlock();
+
+        return new WhileNode(condition, body);
+    }
+
+    private ASTNode parseIfStatement() {
+        match(TokenType.IF);
+        match(TokenType.LPAREN);
+        ASTNode condition = parseExpression();
+        match(TokenType.RPAREN);
+        BlockNode body = parseBlock();
+        if (currentSymbol.getType() == TokenType.ELSE) {
+            advance();
+            BlockNode elseBlock = parseBlock();
+            return new IfNode(condition, body, elseBlock);
+        }
+        return new IfNode(condition, body);
+    }
+
+    private BlockNode parseBlock() {
+        match(TokenType.LBRACE);
+        BlockNode block = new BlockNode();
+
+        while (currentSymbol.getType() != TokenType.RBRACE &&
+                currentSymbol.getType() != TokenType.EOF) {
+            block.addStatement(parseStatement());
+        }
+
+        match(TokenType.RBRACE);
+        return block;
+    }
+
     private ASTNode parseAssignment() {
-        // Note: This logic assumes 'TYPE IDENTIFIER = EXPR;'
-        String typeStr = currentSymbol.getValue();
-        advance(); // Consume the type or identifier
+        String typeStr;
+        if (currentSymbol.getType() != TokenType.IDENTIFIER) {
+            typeStr = currentSymbol.getValue();
+            advance();
+        } else {
+            typeStr = null;
+        }
 
         String id = currentSymbol.getValue();
         match(TokenType.IDENTIFIER);
