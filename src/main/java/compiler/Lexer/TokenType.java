@@ -62,6 +62,12 @@ public enum TokenType {
     COMMA,              // ,
     ARROW,              // ->
 
+    // === INBUILT FUNCTIONS ===
+    STR,                // str func
+    LENGTH,             // length func
+    FLOOR,              // floor func
+    CEIL,               // ceil func
+
     // === SPECIAL ===
     EOF,                // End of file
     ERROR               // Lexical error

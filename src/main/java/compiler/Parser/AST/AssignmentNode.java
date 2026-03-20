@@ -15,6 +15,12 @@ public class AssignmentNode implements ASTNode {
         this.expression = expression;
     }
 
+    public AssignmentNode(String type, String identifier) {
+        this.type = type;
+        this.identifier = identifier;
+        this.expression = null;
+    }
+
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();
@@ -30,12 +36,14 @@ public class AssignmentNode implements ASTNode {
         // The variable name (e.g., x)
         sb.append(indent).append("  Identifier, ").append(identifier).append("\n");
 
-        // The assignment operator label
-        sb.append(indent).append("  AssignmentOperator\n");
+        if (expression != null) {
+            // The assignment operator label
+            sb.append(indent).append("  AssignmentOperator\n");
 
-        // The right-hand side value/expression (e.g., 1 + 2)
-        // We pass an increased indent to the child expression
-        sb.append(expression.print(indent + "  "));
+            // The right-hand side value/expression (e.g., 1 + 2)
+            // We pass an increased indent to the child expression
+            sb.append(expression.print(indent + "  "));
+        }
 
         return sb.toString();
     }

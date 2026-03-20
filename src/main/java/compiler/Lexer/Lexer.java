@@ -27,6 +27,10 @@ public class Lexer {
         keywords.put("STRING", TokenType.STRING_TYPE);
         keywords.put("true", TokenType.TRUE);
         keywords.put("false", TokenType.FALSE);
+        keywords.put("str", TokenType.STR);
+        keywords.put("length", TokenType.LENGTH);
+        keywords.put("floor", TokenType.FLOOR);
+        keywords.put("ceil", TokenType.CEIL);
     }
     public Lexer(Reader input) {
         this.input = input;

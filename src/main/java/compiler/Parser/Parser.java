@@ -61,12 +61,37 @@ public class Parser {
             return parseWhileLoop();
         }
 
+        if (type == TokenType.FOR) {
+            return parseForLoop();
+        }
+
+        /*
+         //////////////////////////////////////////
+         /// Add inbuilt functions to the lexer ///
+         //////////////////////////////////////////
+          **/
+
         // Fallback for raw identifiers (e.g., re-assignment like x = 10;)
         if (type == TokenType.IDENTIFIER) {
             return parseAssignment();
         }
 
         throw new RuntimeException("Syntax Error: Unexpected token " + type + " at line " + currentSymbol.getLine());
+    }
+
+    private ASTNode parseForLoop() {
+        match(TokenType.FOR);
+        match(TokenType.LPAREN);
+        ASTNode init = parseAssignment();
+        ASTNode rangeStart = parseExpression();
+        match(TokenType.ARROW);
+        ASTNode rangeEnd = parseExpression();
+        match(TokenType.SEMICOLON);
+        ASTNode update = parseExpression();
+        match(TokenType.RPAREN);
+        BlockNode body = parseBlock();
+
+        return new ForNode(init, rangeStart, rangeEnd, update, body);
     }
 
     private ASTNode parseWhileLoop() {
@@ -118,7 +143,12 @@ public class Parser {
         String id = currentSymbol.getValue();
         match(TokenType.IDENTIFIER);
 
-        match(TokenType.ASSIGN);
+        if (currentSymbol.getType() == TokenType.SEMICOLON) {
+            match(TokenType.SEMICOLON);
+            return new AssignmentNode(typeStr, id);
+        } else {
+            match(TokenType.ASSIGN);
+        }
 
         ASTNode rhs = parseExpression();
 

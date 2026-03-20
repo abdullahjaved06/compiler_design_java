@@ -1,4 +1,7 @@
 import static org.junit.Assert.assertNotNull;
+
+import compiler.Lexer.Symbol;
+import compiler.Lexer.TokenType;
 import org.junit.Test;
 
 import java.io.StringReader;
@@ -8,10 +11,14 @@ public class TestLexer {
     
     @Test
     public void test() {
-        String input = "var x int = 2;";
+        String input = "FLOAT f; ceil(f);";
         StringReader reader = new StringReader(input);
         Lexer lexer = new Lexer(reader);
         assertNotNull(lexer.getNextSymbol());
+        Symbol symbol;
+        while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
+            System.out.println(symbol);
+        }
     }
 
 }

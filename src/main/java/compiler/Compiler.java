@@ -67,6 +67,7 @@ public class Compiler {
     private static void runTest() {
         // A simple test case to verify the Parser logic
         String testInput = """
+                INT ap;
                 INT i = 3;\s
                 FLOAT j = 3.2*5.0;\s
                 INT k = i*3;\s
@@ -74,15 +75,17 @@ public class Compiler {
                 BOOL isEmpty  = true;\s
                 INT a = "Hello World"; # This is technically wrong\s
                 BOOL c = (a / k) == k;
-                while (i <= 10) {
-                    i = i + 2;
-                    if (i < 5) {
-                        i = i - 1;
-                    } else {
-                        i = i + 1;
-                    }
-                    if (i == 6) {
-                        i = 7;
+                for (FLOAT f; 0 -> 1.1; f + 0.1) {
+                    while (i <= 10) {
+                        i = i + 2;
+                        if (i < 5) {
+                            i = i - 1;
+                        } else {
+                            i = i + 1;
+                        }
+                        if (i == 6) {
+                            i = 7;
+                        }
                     }
                 }
                         \s""";
@@ -92,6 +95,7 @@ public class Compiler {
 
         try {
             Lexer lexer = new Lexer(new StringReader(testInput));
+
             Parser parser = new Parser(lexer);
             ASTNode root = parser.getAST();
 
