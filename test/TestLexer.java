@@ -11,7 +11,7 @@ public class TestLexer {
     
     @Test
     public void test() {
-        String input = "FLOAT f; ceil(f);";
+        String input = "BOOL f = 0.0; print(f); read_FLOAT();";
         StringReader reader = new StringReader(input);
         Lexer lexer = new Lexer(reader);
         assertNotNull(lexer.getNextSymbol());

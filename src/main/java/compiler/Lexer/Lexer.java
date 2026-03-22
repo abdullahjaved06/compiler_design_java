@@ -30,7 +30,13 @@ public class Lexer {
         keywords.put("str", TokenType.STR);
         keywords.put("length", TokenType.LENGTH);
         keywords.put("floor", TokenType.FLOOR);
-        keywords.put("ceil", TokenType.CEIL);
+        keywords.put("read_INT", TokenType.READ_INT);
+        keywords.put("read_FLOAT", TokenType.READ_FLOAT);
+        keywords.put("read_STRING", TokenType.READ_STRING);
+        keywords.put("print_INT", TokenType.PRINT_INT);
+        keywords.put("print_FLOAT", TokenType.PRINT_FLOAT);
+        keywords.put("print", TokenType.PRINT);
+        keywords.put("println", TokenType.PRINTLN);
     }
     public Lexer(Reader input) {
         this.input = input;

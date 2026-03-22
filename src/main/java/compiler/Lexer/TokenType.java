@@ -67,6 +67,13 @@ public enum TokenType {
     LENGTH,             // length func
     FLOOR,              // floor func
     CEIL,               // ceil func
+    READ_INT,
+    READ_FLOAT,
+    READ_STRING,
+    PRINT_INT,
+    PRINT_FLOAT,
+    PRINT,
+    PRINTLN,
 
     // === SPECIAL ===
     EOF,                // End of file
