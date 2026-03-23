@@ -48,8 +48,14 @@ public class Parser {
     private ASTNode parseStatement() {
         // Check if the current token looks like a type declaration (INT, FLOAT, etc.)
         TokenType type = currentSymbol.getType();
+
+        if (currentSymbol.getType() == TokenType.FINAL) {
+            return parseFinalDeclaration();
+        }
+
         if (type == TokenType.INT_TYPE || type == TokenType.FLOAT_TYPE ||
-                type == TokenType.STRING_TYPE || type == TokenType.BOOL_TYPE) {
+                type == TokenType.STRING_TYPE || type == TokenType.BOOL_TYPE ||
+                type == TokenType.COLLECTION_NAME) {
             return parseAssignment();
         }
 
@@ -65,11 +71,23 @@ public class Parser {
             return parseForLoop();
         }
 
-        /*
-         //////////////////////////////////////////
-         /// Add inbuilt functions to the lexer ///
-         //////////////////////////////////////////
-          **/
+        if (type == TokenType.COLL) {
+            return parseCollectionDeclaration();
+        }
+
+        if (type == TokenType.DEF) {
+            return parseFunctionDeclaration();
+        }
+
+        if (type == TokenType.RETURN) {
+            return parseReturn();
+        }
+
+        if (isInbuiltFunction(type)) {
+            ASTNode node = parseInbuilt();
+            match(TokenType.SEMICOLON);
+            return node;
+        }
 
         // Fallback for raw identifiers (e.g., re-assignment like x = 10;)
         if (type == TokenType.IDENTIFIER) {
@@ -77,6 +95,89 @@ public class Parser {
         }
 
         throw new RuntimeException("Syntax Error: Unexpected token " + type + " at line " + currentSymbol.getLine());
+    }
+
+    private ASTNode parseInbuilt() {
+        String name = currentSymbol.getValue();
+        advance();
+
+        match(TokenType.LPAREN);
+
+        java.util.List<ASTNode> args = new java.util.ArrayList<>();
+
+        if (currentSymbol.getType() != TokenType.RPAREN) {
+            args.add(parseExpression());
+            while (currentSymbol.getType() == TokenType.COMMA) {
+                advance();
+                args.add(parseExpression());
+            }
+        }
+
+        match(TokenType.RPAREN);
+
+        return new FunctionCallNode(name, args);
+    }
+
+    private ASTNode parseFinalDeclaration() {
+        match(TokenType.FINAL);
+
+        ASTNode node = parseAssignment();
+
+        return new FinalNode(node);
+    }
+
+    private ASTNode parseReturn() {
+        match(TokenType.RETURN);
+        ASTNode expr = parseExpression();
+        match(TokenType.SEMICOLON);
+        return new ReturnNode(expr);
+    }
+
+    private ASTNode parseFunctionDeclaration() {
+        match(TokenType.DEF);
+
+        String returnType = currentSymbol.getValue();
+        advance();
+
+        String name = null;
+        if (currentSymbol.getType() == TokenType.IDENTIFIER) {
+            name = currentSymbol.getValue();
+            match(TokenType.IDENTIFIER);
+        }
+        match(TokenType.LPAREN);
+
+        java.util.List<ASTNode> args = new java.util.ArrayList<>();
+        if (currentSymbol.getType() != TokenType.RPAREN) {
+            args.add(parseArguments());
+            while (currentSymbol.getType() == TokenType.COMMA) {
+                advance();
+                args.add(parseArguments());
+            }
+        }
+        match(TokenType.RPAREN);
+
+        BlockNode body = parseBlock();
+        return new FunctionNode(returnType, name, args, body);
+    }
+
+    private ASTNode parseArguments() {
+        String type = parseTypeString();
+        if (currentSymbol.getType() == TokenType.LBRACKET) {
+            match(TokenType.LBRACKET);
+            match(TokenType.RBRACKET);
+            type += "[]";
+        }
+        String id = currentSymbol.getValue();
+        match(TokenType.IDENTIFIER);
+        return new AssignmentNode(type, id, null);
+    }
+
+    private ASTNode parseCollectionDeclaration() {
+        match(TokenType.COLL);
+        String name = currentSymbol.getValue();
+        match(TokenType.COLLECTION_NAME);
+        BlockNode members = parseBlock();
+        return new CollectionNode(name, members);
     }
 
     private ASTNode parseForLoop() {
@@ -131,11 +232,27 @@ public class Parser {
         return block;
     }
 
+    private String parseTypeString() {
+        TokenType type = currentSymbol.getType();
+        String typeName = currentSymbol.getValue();
+        if (type == TokenType.INT_TYPE || type == TokenType.FLOAT_TYPE ||
+                type == TokenType.STRING_TYPE || type == TokenType.BOOL_TYPE ||
+                type == TokenType.COLLECTION_NAME) {
+
+            advance();
+            if (currentSymbol.getType() == TokenType.LBRACKET) {
+                match(TokenType.LBRACKET);
+                match(TokenType.RBRACKET);
+                typeName += "[]";
+            }
+        }
+        return typeName;
+    }
+
     private ASTNode parseAssignment() {
         String typeStr;
         if (currentSymbol.getType() != TokenType.IDENTIFIER) {
-            typeStr = currentSymbol.getValue();
-            advance();
+            typeStr = parseTypeString();
         } else {
             typeStr = null;
         }
@@ -220,7 +337,7 @@ public class Parser {
     }
 
     private ASTNode parseMultiplication() {
-        ASTNode node = parsePrimary();
+        ASTNode node = parseAccess();
 
         while (currentSymbol.getType() == TokenType.STAR ||
                 currentSymbol.getType() == TokenType.SLASH ||
@@ -233,7 +350,29 @@ public class Parser {
         return node;
     }
 
+    private ASTNode parseAccess() {
+        ASTNode node = parsePrimary();
+
+        while (currentSymbol.getType() == TokenType.DOT || currentSymbol.getType() == TokenType.LBRACKET) {
+            if (currentSymbol.getType() == TokenType.DOT) {
+                advance();
+                String member = currentSymbol.getValue();
+                match(TokenType.IDENTIFIER);
+                node = new MemberAccessNode(node, member);
+            } else if (currentSymbol.getType() == TokenType.LBRACKET) {
+                advance();
+                ASTNode index = parseExpression();
+                match(TokenType.RBRACKET);
+                node = new IndexAccessNode(node, index);
+            }
+        }
+        return node;
+    }
+
     private ASTNode parsePrimary() {
+        if (isInbuiltFunction(currentSymbol.getType())) {
+            return parseInbuilt();
+        }
         if (currentSymbol.getType() == TokenType.INTEGER_LITERAL) {
             ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.INT);
             advance();
@@ -246,18 +385,59 @@ public class Parser {
             ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.FLOAT);
             advance();
             return node;
-        } else if (currentSymbol.getType() == TokenType.TRUE) {
-            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.TRUE);
+        } else if (currentSymbol.getType() == TokenType.TRUE ||
+            currentSymbol.getType() == TokenType.FALSE) {
+            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.BOOL);
             advance();
             return node;
-        } else if (currentSymbol.getType() == TokenType.FALSE) {
-            ASTNode node = new LiteralNode(currentSymbol.getValue(), DataType.FALSE);
+        } else if (currentSymbol.getType() == TokenType.COLLECTION_NAME) {
+            String collection = currentSymbol.getValue();
             advance();
-            return node;
-        }else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
-            ASTNode node = new IdentifierNode(currentSymbol.getValue());
+            match(TokenType.LPAREN);
+
+            java.util.List<ASTNode> args = new java.util.ArrayList<>();
+            if (currentSymbol.getType() != TokenType.RPAREN) {
+                args.add(parseExpression());
+                while (currentSymbol.getType() == TokenType.COMMA) {
+                    advance();
+                    args.add(parseExpression());
+                }
+            }
+            match(TokenType.RPAREN);
+            return new ConstructorCallNode(collection, args);
+        } else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
+            String name = currentSymbol.getValue();
             advance();
+
+            ASTNode node;
+
+            if (currentSymbol.getType() == TokenType.LPAREN) {
+                advance();
+                java.util.List<ASTNode> args = new java.util.ArrayList<>();
+                if (currentSymbol.getType() != TokenType.RPAREN) {
+                    args.add(parseExpression());
+                    while (currentSymbol.getType() == TokenType.COMMA) {
+                        advance();
+                        args.add(parseExpression());
+                    }
+                }
+                match(TokenType.RPAREN);
+                node = new FunctionCallNode(name, args);
+                return node;
+            }
+
+            node = new IdentifierNode(name);
             return node;
+        } else if (currentSymbol.getType() == TokenType.INT_TYPE || currentSymbol.getType() == TokenType.FLOAT_TYPE) {
+            String type = currentSymbol.getValue();
+            advance();
+            if (currentSymbol.getType() == TokenType.ARRAY_KEYWORD) {
+                advance();
+                match(TokenType.LBRACKET);
+                ASTNode size = parseExpression();
+                match(TokenType.RBRACKET);
+                return new ArrayInitNode(type, size);
+            }
         } else if (currentSymbol.getType() == TokenType.LPAREN) {
             match(TokenType.LPAREN);
             ASTNode node = parseExpression();
@@ -265,5 +445,15 @@ public class Parser {
             return node;
         }
         throw new RuntimeException("Syntax Error: Unexpected symbol " + currentSymbol.getType() + " at line " + currentSymbol.getLine());
+    }
+
+    private boolean isInbuiltFunction(TokenType type) {
+        return type == TokenType.READ_INT || type == TokenType.READ_FLOAT ||
+                type == TokenType.READ_STRING || type == TokenType.PRINT ||
+                type == TokenType.PRINTLN || type == TokenType.FLOOR ||
+                type == TokenType.CEIL || type == TokenType.STR ||
+                type == TokenType.LENGTH || type == TokenType.WRITE ||
+                type == TokenType.MAIN;
+
     }
 }

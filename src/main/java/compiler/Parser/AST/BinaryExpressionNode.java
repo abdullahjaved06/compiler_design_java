@@ -21,18 +21,18 @@ public class BinaryExpressionNode implements ASTNode {
         StringBuilder sb = new StringBuilder();
 
         // Print the left operand
-        sb.append(left.print(indent));
+        sb.append(left.print(indent)).append("\n");
 
         // Print the operator line
         switch (type){
             case "Logical":
-                sb.append("\n").append(indent).append("LogicalOperator, ").append(operator).append("\n");
+                sb.append(indent).append("LogicalOperator, ").append(operator).append("\n");
                 break;
             case "Relational":
-                sb.append("\n").append(indent).append("RelationalOperator, ").append(operator).append("\n");
+                sb.append(indent).append("RelationalOperator, ").append(operator).append("\n");
                 break;
             default:
-                sb.append("\n").append(indent).append("ArithmeticOperator, ").append(operator).append("\n");
+                sb.append(indent).append("ArithmeticOperator, ").append(operator).append("\n");
                 break;
         }
 

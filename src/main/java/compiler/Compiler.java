@@ -67,28 +67,44 @@ public class Compiler {
     private static void runTest() {
         // A simple test case to verify the Parser logic
         String testInput = """
-                INT ap;
-                INT i = 3;\s
-                FLOAT j = 3.2*5.0;\s
-                INT k = i*3;\s
-                STRING message = "Hello";\s
-                BOOL isEmpty  = true;\s
-                INT a = "Hello World"; # This is technically wrong\s
-                BOOL c = (a / k) == k;
-                for (FLOAT f; 0 -> 1.1; f + 0.1) {
-                    while (i <= 10) {
-                        i = i + 2;
-                        if (i < 5) {
-                            i = i - 1;
-                        } else {
-                            i = i + 1;
-                        }
-                        if (i == 6) {
-                            i = 7;
-                        }
-                    }
-                }
-                        \s""";
+                INT i = 3 ; 
+                final FLOAT j = 3.2 * 5.0 ; 
+                final INT k = i * 3 ; 
+                final STRING message = "Hello" ; 
+                final BOOL isEmpty = true ; 
+                coll Point { 
+                    INT x ;
+                    INT y ;
+                } 
+                coll Person { #10
+                    STRING name ;
+                    Point location ; 
+                    INT [ ] history ; 
+                } 
+                INT a = 3 ; 
+                INT [ ] c = INT ARRAY [ 5 ] ; 
+                Person d = Person ( "me" , Point ( 3 , 7 ) , INT ARRAY [ i * 2 ] ) ; 
+                def INT square ( INT v ) { 
+                    return v * v ; 
+                } #20
+                def Point copyPoints ( Point [ ] p ) { 
+                    return Point ( p [ 0 ] . x + p [ 1 ] . x , p [ 0 ] . y + p [ 1 ] . y ) ; 
+                } 
+                def main ( ) { 
+                    INT value = read_INT ( ) ;
+                    println( square ( value ) ) ; 
+                    INT i ; 
+                    for ( i ; 1 -> 100 ; i + 1 ) { 
+                        while ( value =/= 3 ) { 
+                            if ( i > 10 ) { #30
+                                value = value - 1 ; 
+                            } else { 
+                                write( message ) ; 
+                            } 
+                        } 
+                    } 
+                    i = ( i + 2 ) * 2 ;
+                 }\s""";
         System.out.println("Input String: " + testInput);
         System.out.println("\nGenerated AST:");
         System.out.println("--------------");

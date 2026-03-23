@@ -37,6 +37,8 @@ public class Lexer {
         keywords.put("print_FLOAT", TokenType.PRINT_FLOAT);
         keywords.put("print", TokenType.PRINT);
         keywords.put("println", TokenType.PRINTLN);
+        keywords.put("write", TokenType.WRITE);
+        keywords.put("main", TokenType.MAIN);
     }
     public Lexer(Reader input) {
         this.input = input;

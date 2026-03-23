@@ -74,6 +74,8 @@ public enum TokenType {
     PRINT_FLOAT,
     PRINT,
     PRINTLN,
+    WRITE,
+    MAIN,
 
     // === SPECIAL ===
     EOF,                // End of file

@@ -1,8 +1,5 @@
 package compiler.Parser.AST;
 
-import static compiler.Lexer.TokenType.FALSE;
-import static compiler.Lexer.TokenType.TRUE;
-
 public class LiteralNode implements ASTNode {
     private final String value;
     private final DataType type;
@@ -19,8 +16,7 @@ public class LiteralNode implements ASTNode {
             case INT -> "Integer";
             case FLOAT -> "Float";
             case STRING -> "String";
-            case TRUE -> "True";
-            case FALSE -> "False";
+            case BOOL -> "Bool";
             default -> type.name();
         };
         return indent + label + ", " + value;
