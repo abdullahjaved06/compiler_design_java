@@ -136,13 +136,17 @@ public class Parser {
     private ASTNode parseFunctionDeclaration() {
         match(TokenType.DEF);
 
-        String returnType = currentSymbol.getValue();
-        advance();
+        String returnType = null;
+        if (currentSymbol.getType() != TokenType.MAIN) {
+            returnType = currentSymbol.getValue();
+            advance();
+        }
 
         String name = null;
-        if (currentSymbol.getType() == TokenType.IDENTIFIER) {
+        if (currentSymbol.getType() == TokenType.IDENTIFIER ||
+                currentSymbol.getType() == TokenType.MAIN) {
             name = currentSymbol.getValue();
-            match(TokenType.IDENTIFIER);
+            advance();
         }
         match(TokenType.LPAREN);
 
@@ -452,8 +456,7 @@ public class Parser {
                 type == TokenType.READ_STRING || type == TokenType.PRINT ||
                 type == TokenType.PRINTLN || type == TokenType.FLOOR ||
                 type == TokenType.CEIL || type == TokenType.STR ||
-                type == TokenType.LENGTH || type == TokenType.WRITE ||
-                type == TokenType.MAIN;
+                type == TokenType.LENGTH || type == TokenType.WRITE;
 
     }
 }

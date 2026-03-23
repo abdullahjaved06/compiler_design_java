@@ -20,7 +20,7 @@ public class ForNode implements ASTNode {
         StringBuilder sb = new StringBuilder();
 
         sb.append(indent).append("ForLoop\n");
-        sb.append(indent).append("  Iterator\n").append(init.print(indent + "    "));
+        sb.append(indent).append("  Iterator\n").append(init.print(indent + "    ")).append("\n");
         sb.append(indent).append("  RangeStart\n").append(rangeStart.print(indent + "    ")).append("\n");
         sb.append(indent).append("  RangeEnd\n").append(rangeEnd.print(indent + "    ")).append("\n");
         sb.append(indent).append("  UpdatedValue\n");

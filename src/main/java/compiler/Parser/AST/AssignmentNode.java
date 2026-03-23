@@ -34,11 +34,11 @@ public class AssignmentNode implements ASTNode {
         }
 
         // The variable name (e.g., x)
-        sb.append(indent).append("  Identifier, ").append(identifier).append("\n");
+        sb.append(indent).append("  Identifier, ").append(identifier);
 
         if (expression != null) {
             // The assignment operator label
-            sb.append(indent).append("  AssignmentOperator\n");
+            sb.append("\n").append(indent).append("  AssignmentOperator\n");
 
             // The right-hand side value/expression (e.g., 1 + 2)
             // We pass an increased indent to the child expression

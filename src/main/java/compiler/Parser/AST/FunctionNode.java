@@ -23,11 +23,14 @@ public class FunctionNode implements ASTNode {
         sb.append(indent).append("  ReturnType ").append(returnType).append("\n");
         sb.append(indent).append("  Arguments");
 
-        for (ASTNode param : args) {
-            sb.append("\n").append(param.print(indent + "    "));
+        if (args.isEmpty()) {
+             sb.append(", None");
+        } else {
+            for (ASTNode arg : args) {
+                sb.append("\n").append(arg.print(indent + "    "));
+            }
         }
-
-        sb.append(indent).append("  Body\n");
+        sb.append("\n").append(indent).append("  Body\n");
         sb.append(body.print(indent + "    "));
 
         return sb.toString();

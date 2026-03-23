@@ -13,9 +13,9 @@ public class BlockNode implements ASTNode {
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();
-        for (ASTNode statement : statements) {
-            sb.append(statement.print(indent));
-            if (statements.indexOf(statement) < statements.size() - 1) {
+        for (int i = 0; i < statements.size(); i++) {
+            sb.append(statements.get(i).print(indent));
+            if (i < statements.size() - 1) {
                 sb.append("\n");
             }
         }
