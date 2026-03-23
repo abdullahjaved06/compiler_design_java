@@ -1,20 +1,15 @@
-import static org.junit.Assert.assertNotNull;
 
-import compiler.Lexer.Symbol;
-import compiler.Lexer.TokenType;
-import org.junit.Test;
-
-import java.io.StringReader;
 import compiler.Lexer.Lexer;
+import compiler.Parser.Parser;
+import compiler.Parser.AST.ASTNode;
+import java.io.StringReader;
 
-public class TestLexer {
-    
-    @Test
-    public void test() {
+public class TestParser {
+    public static void main(String[] args) {
         String testInput = """
-                INT i = 3 ;
-                final FLOAT j = 3.2 * 5.0 ;
-                final INT k = i * 3 ;
+                INT i = 3 ; 
+                final FLOAT j = 3.2 * 5.0 ; 
+                final INT k = i * 3 ; 
                 final STRING message = "Hello" ; 
                 final BOOL isEmpty = true ; 
                 coll Point { 
@@ -50,13 +45,19 @@ public class TestLexer {
                     } 
                     i = ( i + 2 ) * 2 ;
                  }\s""";
-        StringReader reader = new StringReader(testInput);
-        Lexer lexer = new Lexer(reader);
-        assertNotNull(lexer.getNextSymbol());
-        Symbol symbol;
-        while ((symbol = lexer.getNextSymbol()).getType() != TokenType.EOF) {
-            System.out.println(symbol);
+
+        try {
+            Lexer lexer = new Lexer(new StringReader(testInput));
+
+            Parser parser = new Parser(lexer);
+
+            System.out.println("Starting Parser");
+            ASTNode root = parser.getAST();
+            System.out.println("Generated AST:");
+            System.out.println(root.print(""));
+
+        } catch (Exception e) {
+            System.err.println("Parser Test Error: " + e.getMessage());
         }
     }
-
 }
