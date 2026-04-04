@@ -14,6 +14,15 @@ public class IfNode implements ASTNode {
     public IfNode(ASTNode condition, BlockNode body) {
         this(condition, body, null);
     }
+    public ASTNode getCondition(){
+        return condition;
+    }
+    public BlockNode getBody(){
+        return body;
+    }
+    public BlockNode getElseBody(){
+        return elseBody;
+    }
 
     @Override
     public String print(String indent) {

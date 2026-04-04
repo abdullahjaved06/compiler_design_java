@@ -15,6 +15,18 @@ public class BinaryExpressionNode implements ASTNode {
         this.right = right;
         this.type = type;
     }
+    public String getOperator(){
+        return operator;
+    }
+    public ASTNode getLeft(){
+        return left;
+    }
+    public ASTNode getRight(){
+        return right;
+    }
+    public String getType(){
+        return type;
+    }
 
     @Override
     public String print(String indent) {

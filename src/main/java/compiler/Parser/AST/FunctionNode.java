@@ -14,7 +14,18 @@ public class FunctionNode implements ASTNode {
         this.args = args;
         this.body = body;
     }
-
+    public String getReturnType() {
+        return returnType;
+    }
+    public String getName() {
+        return name;
+    }
+    public List<ASTNode> getArgs() {
+        return args;
+    }
+    public BlockNode getBody() {
+        return body;
+    }
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();

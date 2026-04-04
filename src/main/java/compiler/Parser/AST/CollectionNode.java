@@ -8,7 +8,12 @@ public class CollectionNode implements ASTNode {
         this.name = name;
         this.body = body;
     }
-
+    public String getName() {
+        return name;
+    }
+    public BlockNode getBody() {
+        return body;
+    }
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();

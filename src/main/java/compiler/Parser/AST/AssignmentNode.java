@@ -20,7 +20,15 @@ public class AssignmentNode implements ASTNode {
         this.identifier = identifier;
         this.expression = null;
     }
-
+    public String getType(){
+        return type;
+    }
+    public String getIdentifier(){
+        return identifier;
+    }
+    public ASTNode getExpression() {
+        return expression;
+    }
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();
@@ -48,3 +56,8 @@ public class AssignmentNode implements ASTNode {
         return sb.toString();
     }
 }
+
+
+
+
+

@@ -7,6 +7,9 @@ public class ReturnNode implements ASTNode {
         this.expression = expression;
     }
 
+    public ASTNode getExpression() {
+        return expression;
+    }
     @Override
     public String print(String indent) {
         return indent + "ReturnStatement\n" + expression.print(indent + "  ");

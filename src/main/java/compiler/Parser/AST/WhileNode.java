@@ -8,6 +8,12 @@ public class WhileNode implements ASTNode {
         this.condition = condition;
         this.body = body;
     }
+    public ASTNode getCondition() {
+        return condition;
+    }
+    public BlockNode getBody() {
+        return body;
+    }
 
     @Override
     public String print(String indent) {

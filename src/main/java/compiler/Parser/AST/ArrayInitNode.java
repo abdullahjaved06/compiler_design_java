@@ -8,6 +8,12 @@ public class ArrayInitNode implements ASTNode {
         this.type = type;
         this.size = size;
     }
+    public String getType(){
+        return type;
+    }
+    public ASTNode getSize() {
+        return size;
+    }
 
     @Override
     public String print(String indent) {

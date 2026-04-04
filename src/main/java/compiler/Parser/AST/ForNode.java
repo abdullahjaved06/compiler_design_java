@@ -15,6 +15,28 @@ public class ForNode implements ASTNode {
         this.body = body;
     }
 
+    // --- Getters for Semantic Analysis ---
+
+    public ASTNode getInit() {
+        return init;
+    }
+
+    public ASTNode getRangeStart() {
+        return rangeStart;
+    }
+
+    public ASTNode getRangeEnd() {
+        return rangeEnd;
+    }
+
+    public ASTNode getUpdate() {
+        return update;
+    }
+
+    public BlockNode getBody() {
+        return body;
+    }
+
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();

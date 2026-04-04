@@ -8,7 +8,12 @@ public class LiteralNode implements ASTNode {
         this.value = value;
         this.type = type;
     }
-
+    public String getValue(){
+        return value;
+    }
+    public DataType getType(){
+        return type;
+    }
     @Override
     public String print(String indent) {
         // Mapping the Enum back to the specific string format required for the project tree

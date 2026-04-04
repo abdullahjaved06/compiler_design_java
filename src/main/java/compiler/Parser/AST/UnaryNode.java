@@ -8,7 +8,13 @@ public class UnaryNode implements ASTNode {
         this.operator = operator;
         this.operand = operand;
     }
+    public String getOperator() {
+        return operator;
+    }
 
+    public ASTNode getOperand() {
+        return operand;
+    }
     @Override
     public String print(String indent) {
         return indent + "UnaryOperator, " + operator + "\n" +

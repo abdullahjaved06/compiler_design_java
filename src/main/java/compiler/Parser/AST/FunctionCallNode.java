@@ -10,7 +10,13 @@ public class FunctionCallNode implements ASTNode {
         this.name = name;
         this.args = args;
     }
+    public String getFunctionName() {
+        return name;
+    }
 
+    public List<ASTNode> getArguments() {
+        return args;
+    }
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();

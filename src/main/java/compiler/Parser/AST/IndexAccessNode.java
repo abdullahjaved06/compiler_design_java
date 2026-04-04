@@ -8,7 +8,12 @@ public class IndexAccessNode implements ASTNode {
         this.array = array;
         this.index = index;
     }
-
+    public ASTNode getArray() {
+        return array;
+    }
+    public ASTNode getIndex() {
+        return index;
+    }
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();
