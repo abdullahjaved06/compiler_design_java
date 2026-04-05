@@ -348,7 +348,7 @@ public class Parser {
                 currentSymbol.getType() == TokenType.PERCENT) {
             String op = currentSymbol.getValue();
             advance();
-            ASTNode right = parsePrimary();
+            ASTNode right = parseAccess();
             node = new BinaryExpressionNode(op, node, right, "Arithmetic");
         }
         return node;
