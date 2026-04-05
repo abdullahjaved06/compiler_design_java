@@ -1,0 +1,3 @@
+def main() {
+ INT x =5 + "hello";
+}
