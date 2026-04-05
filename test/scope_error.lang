@@ -1,0 +1,5 @@
+  INT x = 10;
+    if (true) {
+        INT blockVar = 20;
+    }
+    blockVar = 30; # This will trigger the ScopeError keyword

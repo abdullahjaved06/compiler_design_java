@@ -17,10 +17,10 @@ public class IfNode implements ASTNode {
     public ASTNode getCondition(){
         return condition;
     }
-    public BlockNode getBody(){
+    public BlockNode getThenBlock(){
         return body;
     }
-    public BlockNode getElseBody(){
+    public BlockNode getElseBlock(){
         return elseBody;
     }
 

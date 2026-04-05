@@ -5,6 +5,8 @@ import compiler.Lexer.Symbol;
 import compiler.Lexer.TokenType;
 import compiler.Parser.Parser;
 import compiler.Parser.AST.ASTNode;
+import compiler.Semantic.SemanticAnalyzer;
+
 import java.io.StringReader;
 import java.io.Reader;
 import java.io.FileReader;
@@ -23,6 +25,18 @@ public class Compiler {
                 runLexer(filepath);
             } else if (mode.equals("-parser")) {
                 runParser(filepath);
+            } else if (mode.equals("-semantic")) {
+                Lexer lexer = new Lexer(new FileReader(args[1]));
+                Parser parser = new Parser(lexer);
+                ASTNode root  = parser.getAST();
+                if (root != null){
+                    SemanticAnalyzer analyzer = new SemanticAnalyzer();
+                    analyzer.analyze(root);
+                }
+
+                SemanticAnalyzer analyzer = new SemanticAnalyzer();
+                analyzer.analyze(root);
+
             } else {
                 System.out.println("Unknown mode: " + mode);
                 System.exit(1);

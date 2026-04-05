@@ -9,6 +9,9 @@ public class BlockNode implements ASTNode {
     public void addStatement(ASTNode statement) {
         statements.add(statement);
     }
+    public List<ASTNode> getStatements() {
+        return statements;
+    }
 
     @Override
     public String print(String indent) {
