@@ -1,0 +1,6 @@
+def main() {
+    INT x = 10;
+    while (x) { # x is an INT, but 'if' requires a BOOL
+        print("Error");
+    }
+}

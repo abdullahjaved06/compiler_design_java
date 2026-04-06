@@ -1,2 +1,7 @@
-INT x = 10;
-INT x = 20;
+#INT x = 10;
+#INT x = 20;
+
+def main() {
+    INT x = 10;
+    INT x = 20; # Should trigger: "ScopeError: Variable 'x' already defined"
+}
