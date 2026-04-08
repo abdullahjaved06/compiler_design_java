@@ -9,6 +9,14 @@ public class MemberAccessNode implements ASTNode {
         this.member = member;
     }
 
+    public ASTNode getCollection() {
+        return collection;
+    }
+
+    public String getMember() {
+        return member;
+    }
+
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();

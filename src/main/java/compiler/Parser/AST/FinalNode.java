@@ -7,6 +7,10 @@ public class FinalNode implements ASTNode {
         this.assignment = assignment;
     }
 
+    public ASTNode getAssignment() {
+        return assignment;
+    }
+
     @Override
     public String print(String indent) {
         return indent + "FinalModifier\n" + assignment.print(indent + "  ");

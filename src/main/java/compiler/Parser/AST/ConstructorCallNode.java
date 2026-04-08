@@ -11,6 +11,14 @@ public class ConstructorCallNode implements ASTNode {
         this.args = args;
     }
 
+    public String getCollectionName() {
+        return collection;
+    }
+
+    public List<ASTNode> getArguments() {
+        return args;
+    }
+
     @Override
     public String print(String indent) {
         StringBuilder sb = new StringBuilder();
