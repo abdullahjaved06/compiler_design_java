@@ -26,17 +26,7 @@ public class Compiler {
             } else if (mode.equals("-parser")) {
                 runParser(filepath);
             } else if (mode.equals("-semantic")) {
-                Lexer lexer = new Lexer(new FileReader(args[1]));
-                Parser parser = new Parser(lexer);
-                ASTNode root  = parser.getAST();
-                if (root != null){
-                    SemanticAnalyzer analyzer = new SemanticAnalyzer();
-                    analyzer.analyze(root);
-                }
-
-                SemanticAnalyzer analyzer = new SemanticAnalyzer();
-                analyzer.analyze(root);
-
+                runSemantic(filepath);
             } else {
                 System.out.println("Unknown mode: " + mode);
                 System.exit(1);
@@ -75,6 +65,18 @@ public class Compiler {
         } catch (RuntimeException e) {
             System.err.println(e.getMessage());
             System.exit(1);
+        }
+    }
+
+    private static void runSemantic(String filepath) throws Exception {
+        try (Reader reader = new FileReader(filepath)) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+            if (root != null) {
+                SemanticAnalyzer analyzer = new SemanticAnalyzer();
+                analyzer.analyze(root);
+            }
         }
     }
 
