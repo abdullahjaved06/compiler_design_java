@@ -1,0 +1,4 @@
+def main() {
+    FLOAT x = 5.0;
+    FLOAT y = x % 2.0; # OperatorError: using the modulo operator on a FLOAT
+}

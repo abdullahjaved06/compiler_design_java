@@ -1,0 +1,7 @@
+def sayHello() {
+    return 42; # ReturnError: a void function returns a value
+}
+
+def main() {
+    sayHello();
+}

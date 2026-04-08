@@ -1,0 +1,4 @@
+def main() {
+    INT x = 10;
+    INT x = 20; # ScopeError: declaring the same variable name twice in the same scope
+}

@@ -1,0 +1,4 @@
+def main() {
+    INT x = y + 1; # ScopeError: using a variable before it has been declared
+    INT y = 5;
+}

@@ -1,0 +1,13 @@
+coll Point {
+    INT x;
+    INT y;
+}
+
+coll Point { # CollectionError: declaring the same collection name twice
+    INT a;
+    INT b;
+}
+
+def main() {
+    println("should not reach here");
+}

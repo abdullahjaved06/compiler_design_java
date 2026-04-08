@@ -1,0 +1,9 @@
+INT x = 100;
+
+def INT double(INT x) {
+    return x + x;
+}
+
+def main() {
+    INT result = double(5); # ScopeError(valid case): a function parameter shadows a global variable
+}

@@ -1,0 +1,6 @@
+def main() {
+    STRING s = "hello";
+    while (s) { # MissingConditionError: 'while' condition is a STRING, not a BOOL
+        println("bad");
+    }
+}

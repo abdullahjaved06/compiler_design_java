@@ -1,0 +1,3 @@
+def main() {
+    FLOAT x = 5; # TypeError(valid case): INT is automatically promoted to FLOAT
+}

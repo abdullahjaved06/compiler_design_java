@@ -1,0 +1,5 @@
+def main() {
+    BOOL a = true;
+    BOOL b = false;
+    BOOL result = a < b; # OperatorError: using < on two BOOL values
+}

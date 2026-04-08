@@ -1,0 +1,8 @@
+coll Broken {
+    Phantom x; # CollectionError: a field inside a collection uses an undefined type
+    INT y;
+}
+
+def main() {
+    println("should not reach here");
+}

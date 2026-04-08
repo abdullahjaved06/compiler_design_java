@@ -1,0 +1,6 @@
+def main() {
+    INT x = 10;
+    if (x) { # MissingConditionError: 'if' condition is an INT, not a BOOL
+        println("bad");
+    }
+}

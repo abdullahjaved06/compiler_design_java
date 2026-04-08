@@ -1,3 +1,0 @@
-def main() {
-    INT x = 10 + "hello"; # Should trigger: "OperatorError: Type mismatch"
-}

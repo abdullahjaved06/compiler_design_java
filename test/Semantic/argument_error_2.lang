@@ -1,0 +1,7 @@
+def INT add(INT a, INT b) {
+    return a + b;
+}
+
+def main() {
+    INT result = add(5, "oops"); # ArgumentError: calling a function with the wrong argument type
+}

@@ -1,0 +1,7 @@
+def INT getNumber() {
+    return "oops"; # ReturnError: function declared as INT but returns a STRING
+}
+
+def main() {
+    INT x = getNumber();
+}

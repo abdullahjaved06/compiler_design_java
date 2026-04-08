@@ -1,0 +1,6 @@
+def main() {
+    if (true) {
+        INT blockVar = 20;
+    }
+    INT x = blockVar; # ScopeError: using a variable outside the block it was declared in
+}

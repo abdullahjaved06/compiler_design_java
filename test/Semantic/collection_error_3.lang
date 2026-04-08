@@ -1,0 +1,7 @@
+coll INT {
+    FLOAT value;
+}
+
+def main() {
+    println("should not reach here");
+}

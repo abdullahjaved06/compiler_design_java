@@ -1,0 +1,4 @@
+def main() {
+    INT x = 5;
+    x = "now a string"; # TypeError: re-assigning a variable with a value of the wrong type
+}

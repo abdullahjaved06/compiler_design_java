@@ -1,0 +1,8 @@
+coll Point {
+    INT x;
+    INT y;
+}
+
+def main() {
+    Point p = Point(3); # ArgumentError: constructing a collection with the wrong number of arguments
+}

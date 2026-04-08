@@ -1,0 +1,8 @@
+def INT truncate() {
+    FLOAT pi = 3.14;
+    return pi; # ReturnError: function declared as INT but returns a FLOAT
+}
+
+def main() {
+    INT x = truncate();
+}

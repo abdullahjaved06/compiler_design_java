@@ -1,0 +1,8 @@
+coll Point {
+    INT x;
+    INT y;
+}
+
+def main() {
+    Point p = Point("bad", 7); # ArgumentError: constructing a collection with a wrong field type
+}

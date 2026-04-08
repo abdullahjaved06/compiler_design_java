@@ -1,0 +1,4 @@
+def main() {
+    BOOL a = true;
+    BOOL b = -a; # OperatorError: applying unary minus to a BOOL
+}

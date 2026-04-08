@@ -1,0 +1,3 @@
+def main() {
+    INT x = "hello"; # TypeError: assigning a STRING to an INT variable
+}
