@@ -10,6 +10,7 @@ public class SemanticAnalyzer {
 
     private final SymbolTable symbolTable = new SymbolTable();
     private final Map<String, FunctionDef> functionRegistry = new HashMap<>();
+    private final Map<String, List<FieldDef>> collectionRegistry = new HashMap<>();
 
     private static class FunctionDef {
         String returnType;
@@ -18,6 +19,16 @@ public class SemanticAnalyzer {
         FunctionDef(String returnType, List<String> paramTypes) {
             this.returnType = returnType;
             this.paramTypes = paramTypes;
+        }
+    }
+
+    private static class FieldDef {
+        final String name;
+        final String type;
+
+        FieldDef(String name, String type) {
+            this.name = name;
+            this.type = type;
         }
     }
 
@@ -55,11 +66,37 @@ public class SemanticAnalyzer {
                             paramTypes.add(((AssignmentNode) arg).getType());
                         }
                     }
-
                     functionRegistry.put(fn.getName(), new FunctionDef(fn.getReturnType(), paramTypes));
                 }
+            
+    private void preRegisterCollection(CollectionNode cn) {
+        String name = cn.getName();
+
+        if (!Character.isUpperCase(name.charAt(0))) {
+            throw new RuntimeException(
+                    "CollectionError: Collection name '" + name +
+                    "' must start with an uppercase letter.");
+        }
+
+        Set<String> primitives = Set.of("INT", "FLOAT", "BOOL", "STRING");
+        if (primitives.contains(name)) {
+            throw new RuntimeException(
+                    "CollectionError: '" + name + "' shadows a primitive type.");
+        }
+
+        if (collectionRegistry.containsKey(name)) {
+            throw new RuntimeException(
+                    "CollectionError: Collection '" + name + "' is already defined.");
+        }
+
+        List<FieldDef> fields = new ArrayList<>();
+        for (ASTNode member : cn.getBody().getStatements()) {
+            if (member instanceof AssignmentNode) {
+                AssignmentNode field = (AssignmentNode) member;
+                fields.add(new FieldDef(field.getIdentifier(), field.getType()));
             }
         }
+        collectionRegistry.put(name, fields);
     }
 
     private void visit(ASTNode node) {
