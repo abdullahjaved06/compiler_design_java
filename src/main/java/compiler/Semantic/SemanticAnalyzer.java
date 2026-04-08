@@ -11,6 +11,7 @@ public class SemanticAnalyzer {
     private final SymbolTable symbolTable = new SymbolTable();
     private final Map<String, FunctionDef> functionRegistry = new HashMap<>();
     private final Map<String, List<FieldDef>> collectionRegistry = new HashMap<>();
+    private String currentFunctionReturnType = null;
 
     private static class FunctionDef {
         String returnType;
@@ -37,14 +38,23 @@ public class SemanticAnalyzer {
     }
 
     private void registerInbuiltFunctions() {
-        functionRegistry.put("print", new FunctionDef(null, List.of("STRING")));
-        functionRegistry.put("println", new FunctionDef(null, List.of("STRING")));
-        functionRegistry.put("read_INT", new FunctionDef("INT", new ArrayList<>()));
+        functionRegistry.put("print",       new FunctionDef(null, List.of("ANY")));
+        functionRegistry.put("println",     new FunctionDef(null, List.of("ANY")));
+        functionRegistry.put("write",       new FunctionDef(null, List.of("ANY")));
+        functionRegistry.put("read_INT",    new FunctionDef("INT", new ArrayList<>()));
+        functionRegistry.put("read_FLOAT",  new FunctionDef("FLOAT", new ArrayList<>()));
+        functionRegistry.put("read_STRING", new FunctionDef("STRING", new ArrayList<>()));
+        functionRegistry.put("floor",       new FunctionDef("INT", List.of("FLOAT")));
+        functionRegistry.put("ceil",        new FunctionDef("INT", List.of("FLOAT")));
+        functionRegistry.put("str",         new FunctionDef("STRING", List.of("INT")));
+        functionRegistry.put("length",      new FunctionDef("INT", List.of("ANY")));
+        functionRegistry.put("print_INT",   new FunctionDef(null, List.of("INT")));
+        functionRegistry.put("print_FLOAT", new FunctionDef(null, List.of("FLOAT")));
     }
 
     public void analyze(ASTNode root) {
         try {
-            preRegisterFunctions(root);
+            preRegister(root);
             visit(root);
             System.out.println("Semantic Analysis Successful!");
         } catch (RuntimeException e) {
@@ -53,22 +63,34 @@ public class SemanticAnalyzer {
         }
     }
 
-    private void preRegisterFunctions(ASTNode root) {
-        if (root instanceof BlockNode) {
-            for (ASTNode node : ((BlockNode) root).getStatements()) {
-                if (node instanceof FunctionNode) {
-                    FunctionNode fn = (FunctionNode) node;
-                    List<String> paramTypes = new ArrayList<>();
-
-                    // Extracting types from FunctionNode's args (ASTNodes)
-                    for (ASTNode arg : fn.getArgs()) {
-                        if (arg instanceof AssignmentNode) {
-                            paramTypes.add(((AssignmentNode) arg).getType());
-                        }
-                    }
-                    functionRegistry.put(fn.getName(), new FunctionDef(fn.getReturnType(), paramTypes));
+    private void preRegister(ASTNode root) {
+        if (!(root instanceof BlockNode)) return;
+        for (ASTNode node : ((BlockNode) root).getStatements()) {
+            if (node instanceof FunctionNode) {
+                preRegisterFunction((FunctionNode) node);
+            } else if (node instanceof CollectionNode) {
+                preRegisterCollection((CollectionNode) node);
+            } else if (node instanceof FinalNode) {
+                ASTNode inner = ((FinalNode) node).getAssignment();
+                if (inner instanceof CollectionNode) {
+                    preRegisterCollection((CollectionNode) inner);
                 }
-            
+            }
+        }
+    }
+
+    private void preRegisterFunction(FunctionNode fn) {
+        List<String> paramTypes = new ArrayList<>();
+
+        // Extracting types from FunctionNode's args (ASTNodes)
+        for (ASTNode arg : fn.getArgs()) {
+            if (arg instanceof AssignmentNode) {
+                paramTypes.add(((AssignmentNode) arg).getType());
+            }
+        }
+        functionRegistry.put(fn.getName(), new FunctionDef(fn.getReturnType(), paramTypes));
+    }
+
     private void preRegisterCollection(CollectionNode cn) {
         String name = cn.getName();
 
@@ -161,7 +183,7 @@ public class SemanticAnalyzer {
         } else {
             String existingType = symbolTable.lookupType(id);
             if (node.getExpression() != null) {
-            String rhsType = inferType(node.getExpression());
+                String rhsType = inferType(node.getExpression());
                 if (!typesCompatible(existingType, rhsType)) {
                     throw new RuntimeException(
                             "TypeError: Type mismatch in reassignment of '" +
@@ -172,13 +194,47 @@ public class SemanticAnalyzer {
         }
     }
 
-    private String inferType(ASTNode node) {
-        if (node instanceof LiteralNode) {
-            return ((LiteralNode) node).getType().toString();
+    private void visitCollection(CollectionNode node) {
+        for (ASTNode member : node.getBody().getStatements()) {
+            if (member instanceof AssignmentNode) {
+                AssignmentNode field = (AssignmentNode) member;
+                String fieldType = field.getType();
+                if (fieldType == null) {
+                    continue;
+                }
+                String baseType = fieldType.replace("[]", "");
+                if (!isPrimitive(baseType) && !collectionRegistry.containsKey(baseType)) {
+                    throw new RuntimeException(
+                            "CollectionError: Field '" + field.getIdentifier() +
+                            "' in collection '" + node.getName() +
+                            "' has unknown type '" + fieldType + "'.");
+                }
+            }
         }
-        if (node instanceof IdentifierNode) {
-            return symbolTable.lookupType(((IdentifierNode) node).getName());
+    }
+
+    private void visitFunction(FunctionNode node) {
+        String previousReturnType = currentFunctionReturnType;
+        currentFunctionReturnType = node.getReturnType();
+
+        symbolTable.enterScope();
+
+        // Register parameters as local variables
+        for (ASTNode arg : node.getArgs()) {
+            if (arg instanceof AssignmentNode) {
+                AssignmentNode param = (AssignmentNode) arg;
+                symbolTable.declare(param.getIdentifier(), param.getType(), false);
+            }
         }
+
+        for (ASTNode stmt : node.getBody().getStatements()) {
+            visit(stmt);
+        }
+
+        symbolTable.exitScope();
+        currentFunctionReturnType = previousReturnType;
+    }
+
     private void visitIf(IfNode node) {
         String condType = inferType(node.getCondition());
         if (!"BOOL".equals(condType)) {
@@ -215,34 +271,64 @@ public class SemanticAnalyzer {
         }
         for (ASTNode stmt : node.getBody().getStatements()) {
             visit(stmt);
-            }
+        }
         symbolTable.exitScope();
     }
+
+    private void visitReturn(ReturnNode node) {
+        if (node.getExpression() == null) {
+            if (currentFunctionReturnType != null) {
+                throw new RuntimeException(
+                        "ReturnError: Function with return type '" +
+                        currentFunctionReturnType + "' must return a value.");
+            }
+            return;
         }
-        if (node instanceof FunctionCallNode) {
-            return handleFunctionCall((FunctionCallNode) node);
+        String actualType = inferType(node.getExpression());
+        if (currentFunctionReturnType == null) {
+            throw new RuntimeException(
+                    "ReturnError: Void function cannot return a value of type '" +
+                    actualType + "'.");
         }
-        return "UNKNOWN";
+
+        if (!typesCompatible(currentFunctionReturnType, actualType)) {
+            throw new RuntimeException(
+                    "ReturnError: Function declares return type '" +
+                    currentFunctionReturnType + "' but returns '" +
+                    actualType + "'.");
+        }
     }
 
     private String handleFunctionCall(FunctionCallNode node) {
         String name = node.getFunctionName();
         if (!functionRegistry.containsKey(name)) {
-            throw new RuntimeException("ScopeError: Function '" + name + "' is not defined.");
+            throw new RuntimeException(
+                    "ScopeError: Function '" + name + "' is not defined.");
         }
 
         FunctionDef def = functionRegistry.get(name);
         List<ASTNode> args = node.getArguments();
 
-        if (args.size() != def.paramTypes.size()) {
-            throw new RuntimeException("TypeError: " + name + " expects " + def.paramTypes.size() + " args, got " + args.size());
+        boolean isInbuilt = def.paramTypes.size() == 1
+                && "ANY".equals(def.paramTypes.getFirst());
+
+        if (!isInbuilt && args.size() != def.paramTypes.size()) {
+            throw new RuntimeException(
+                    "ArgumentError: Function '" + name + "' expects " +
+                            def.paramTypes.size() + " argument(s), but got " +
+                            args.size() + ".");
         }
 
-        for (int i = 0; i < args.size(); i++) {
-            String actual = inferType(args.get(i));
-            String expected = def.paramTypes.get(i);
-            if (!actual.equals(expected)) {
-                throw new RuntimeException("TypeError: Arg " + (i + 1) + " of " + name + " should be " + expected + ", found " + actual);
+        if (!isInbuilt) {
+            for (int i = 0; i < args.size(); i++) {
+                String actual = inferType(args.get(i));
+                String expected = def.paramTypes.get(i);
+                if (!typesCompatible(expected, actual)) {
+                    throw new RuntimeException(
+                            "ArgumentError: Argument " + (i + 1) +
+                            " of function '" + name + "' should be '" +
+                            expected + "', but found '" + actual + "'.");
+                }
             }
         }
         return def.returnType != null ? def.returnType : "VOID";
@@ -271,7 +357,7 @@ public class SemanticAnalyzer {
             }
             case BinaryExpressionNode ben -> {
                 return inferBinaryType(ben);
-        }
+            }
             case FunctionCallNode functionCallNode -> {
                 return handleFunctionCall(functionCallNode);
             }
@@ -301,7 +387,7 @@ public class SemanticAnalyzer {
                             indexType + "'.");
                 }
                 return arrayType.substring(0, arrayType.length() - 2);
-        }
+            }
             case MemberAccessNode memberAccessNode -> {
                 return inferMemberAccessType(memberAccessNode);
             }
@@ -387,6 +473,38 @@ public class SemanticAnalyzer {
         }
     }
 
+    private String handleConstructorCall(ConstructorCallNode node) {
+        String collName = node.getCollectionName();
+
+        if (!collectionRegistry.containsKey(collName)) {
+            throw new RuntimeException(
+                    "CollectionError: Collection '" +
+                    collName + "' is not defined.");
+        }
+
+        List<FieldDef> fields = collectionRegistry.get(collName);
+        List<ASTNode> args = node.getArguments();
+
+        if (args.size() != fields.size()) {
+            throw new RuntimeException(
+                    "ArgumentError: Constructor for '" + collName +
+                    "' expects " + fields.size() + " argument(s), but got " +
+                    args.size() + ".");
+        }
+
+        for (int i = 0; i < args.size(); i++) {
+            String actual   = inferType(args.get(i));
+            String expected = fields.get(i).type;
+            if (!typesCompatible(expected, actual)) {
+                throw new RuntimeException(
+                        "ArgumentError: Field '" + fields.get(i).name +
+                        "' of collection '" + collName + "' expects '" +
+                        expected + "', but got '" + actual + "'.");
+            }
+        }
+        return collName;
+    }
+
     private String inferMemberAccessType(MemberAccessNode node) {
         String collType  = inferType(node.getCollection());
         String fieldName = node.getMember();
@@ -407,7 +525,7 @@ public class SemanticAnalyzer {
         throw new RuntimeException(
                 "TypeError: Collection '" + baseType +
                 "' has no field named '" + fieldName + "'.");
-            }
+    }
 
     private boolean typesCompatible(String expected, String actual) {
         if (expected.equals(actual)) {
@@ -422,5 +540,5 @@ public class SemanticAnalyzer {
     private boolean isPrimitive(String type) {
         return "INT".equals(type) || "FLOAT".equals(type) ||
                 "BOOL".equals(type) || "STRING".equals(type);
-        }
     }
+}
