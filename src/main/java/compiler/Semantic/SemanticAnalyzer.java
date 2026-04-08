@@ -127,6 +127,15 @@ public class SemanticAnalyzer {
         symbolTable.exitScope();
     }
 
+    private void visitFinal(FinalNode node) {
+        ASTNode inner = node.getAssignment();
+        visit(inner);
+
+        if (inner instanceof AssignmentNode) {
+            symbolTable.markFinal(((AssignmentNode) inner).getIdentifier());
+        }
+    }
+
     private void visitAssignment(AssignmentNode node) {
         String id = node.getIdentifier();
         String declaredType = node.getType();
@@ -194,19 +203,69 @@ public class SemanticAnalyzer {
         return def.returnType != null ? def.returnType : "VOID";
     }
 
-    private void visitIf(IfNode node) {
-        if (!"BOOL".equals(inferType(node.getCondition()))) {
-            throw new RuntimeException("Missing ConditionError: 'if' condition must be BOOL");
+    private String inferType(ASTNode node) {
+        switch (node) {
+            case null -> {
+                return "VOID";
+            }
+            case LiteralNode literalNode -> {
+                return literalNode.getType().name();
+            }
+            case IdentifierNode identifierNode -> {
+                return symbolTable.lookupType(identifierNode.getName());
+            }
+            case UnaryNode unaryNode -> {
+                String operandType = inferType(unaryNode.getOperand());
+                if (!"INT".equals(operandType) && !"FLOAT".equals(operandType)) {
+                    throw new RuntimeException(
+                            "OperatorError: Unary operator '" +
+                            unaryNode.getOperator() +
+                            "' requires INT or FLOAT, found '" + operandType + "'.");
+                }
+                return operandType;
+            }
+            case BinaryExpressionNode ben -> {
+                return inferBinaryType(ben);
         }
-        visit(node.getThenBlock());
-        if (node.getElseBlock() != null) visit(node.getElseBlock());
-    }
-
-    private void visitWhile(WhileNode node) {
-        if (!"BOOL".equals(inferType(node.getCondition()))) {
-            throw new RuntimeException("Missing ConditionError: 'while' condition must be BOOL");
+            case FunctionCallNode functionCallNode -> {
+                return handleFunctionCall(functionCallNode);
+            }
+            case ConstructorCallNode constructorCallNode -> {
+                return handleConstructorCall(constructorCallNode);
+            }
+            case ArrayInitNode arrayInitNode -> {
+                String sizeType = inferType(arrayInitNode.getSize());
+                if (!"INT".equals(sizeType)) {
+                    throw new RuntimeException(
+                            "TypeError: Array size must be INT, found '" +
+                            sizeType + "'.");
+                }
+                return arrayInitNode.getType() + "[]";
+            }
+            case IndexAccessNode indexAccessNode -> {
+                String arrayType = inferType(indexAccessNode.getArray());
+                if (!arrayType.endsWith("[]")) {
+                    throw new RuntimeException(
+                            "TypeError: Index operator [] applied to non-array type '" +
+                            arrayType + "'.");
+                }
+                String indexType = inferType(indexAccessNode.getIndex());
+                if (!"INT".equals(indexType)) {
+                    throw new RuntimeException(
+                            "TypeError: Array index must be INT, found '" +
+                            indexType + "'.");
+                }
+                return arrayType.substring(0, arrayType.length() - 2);
         }
-        visit(node.getBody());
+            case MemberAccessNode memberAccessNode -> {
+                return inferMemberAccessType(memberAccessNode);
+            }
+            default -> {
+                throw new RuntimeException(
+                        "TypeError: Cannot infer type of node: " +
+                        node.getClass().getSimpleName());
+            }
+        }
     }
 
     private void visitFor(ForNode node) {
@@ -228,15 +287,20 @@ public class SemanticAnalyzer {
                 AssignmentNode param = (AssignmentNode) arg;
                 symbolTable.declare(param.getIdentifier(), param.getType(), false);
             }
-        }
 
-        visit(node.getBody());
-        symbolTable.exitScope();
+    private boolean typesCompatible(String expected, String actual) {
+        if (expected.equals(actual)) {
+            return true;
+        }
+        if ("FLOAT".equals(expected) && "INT".equals(actual)) {
+            return true;
+        }
+        return false;
     }
 
-    private void visitReturn(ReturnNode node) {
-        if (node.getExpression() != null) {
-            inferType(node.getExpression());
+    private boolean isPrimitive(String type) {
+        return "INT".equals(type) || "FLOAT".equals(type) ||
+                "BOOL".equals(type) || "STRING".equals(type);
         }
     }
 }
