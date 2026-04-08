@@ -100,22 +100,20 @@ public class SemanticAnalyzer {
     }
 
     private void visit(ASTNode node) {
-        if (node == null) return;
-
-        if (node instanceof BlockNode) {
-            visitBlock((BlockNode) node);
-        } else if (node instanceof AssignmentNode) {
-            visitAssignment((AssignmentNode) node);
-        } else if (node instanceof IfNode) {
-            visitIf((IfNode) node);
-        } else if (node instanceof WhileNode) {
-            visitWhile((WhileNode) node);
-        } else if (node instanceof ForNode) {
-            visitFor((ForNode) node);
-        } else if (node instanceof FunctionNode) {
-            visitFunction((FunctionNode) node);
-        } else if (node instanceof ReturnNode) {
-            visitReturn((ReturnNode) node);
+        switch (node) {
+            case BlockNode blockNode -> visitBlock(blockNode);
+            case FinalNode finalNode -> visitFinal(finalNode);
+            case AssignmentNode assignmentNode -> visitAssignment(assignmentNode);
+            case CollectionNode collectionNode -> visitCollection(collectionNode);
+            case FunctionNode functionNode -> visitFunction(functionNode);
+            case IfNode ifNode -> visitIf(ifNode);
+            case WhileNode whileNode -> visitWhile(whileNode);
+            case ForNode forNode -> visitFor(forNode);
+            case ReturnNode returnNode -> visitReturn(returnNode);
+            case FunctionCallNode functionCallNode -> inferType(node);
+            default -> {
+                return;
+            }
         }
     }
 
@@ -141,18 +139,35 @@ public class SemanticAnalyzer {
         String declaredType = node.getType();
 
         if (declaredType != null) {
+            if (!isPrimitive(declaredType) && !declaredType.endsWith("[]")) {
+                String baseType = declaredType.replace("[]", "");
+                if (!collectionRegistry.containsKey(baseType)) {
+                    throw new RuntimeException(
+                            "TypeError: Unknown type '" + declaredType +
+                            "' for variable '" + id + "'.");
+                }
+            }
+
             symbolTable.declare(id, declaredType, false);
             if (node.getExpression() != null) {
                 String rhsType = inferType(node.getExpression());
-                if (!declaredType.equals(rhsType)) {
-                    throw new RuntimeException("TypeError: Cannot assign " + rhsType + " to " + declaredType);
+                if (!typesCompatible(declaredType, rhsType)) {
+                    throw new RuntimeException(
+                            "TypeError: Cannot assign '" + rhsType +
+                            "' to variable '" + id + "' of type '" +
+                            declaredType + "'.");
                 }
             }
         } else {
             String existingType = symbolTable.lookupType(id);
+            if (node.getExpression() != null) {
             String rhsType = inferType(node.getExpression());
-            if (!existingType.equals(rhsType)) {
-                throw new RuntimeException("TypeError: Type mismatch in reassignment of '" + id + "'");
+                if (!typesCompatible(existingType, rhsType)) {
+                    throw new RuntimeException(
+                            "TypeError: Type mismatch in reassignment of '" +
+                            id + "': expected '" + existingType +
+                            "', found '" + rhsType + "'.");
+                }
             }
         }
     }
@@ -164,15 +179,45 @@ public class SemanticAnalyzer {
         if (node instanceof IdentifierNode) {
             return symbolTable.lookupType(((IdentifierNode) node).getName());
         }
-        if (node instanceof BinaryExpressionNode) {
-            BinaryExpressionNode ben = (BinaryExpressionNode) node;
-            String left = inferType(ben.getLeft());
-            String right = inferType(ben.getRight());
+    private void visitIf(IfNode node) {
+        String condType = inferType(node.getCondition());
+        if (!"BOOL".equals(condType)) {
+            throw new RuntimeException(
+                    "MissingConditionError: 'if' condition must be BOOL, found '" +
+                    condType + "'.");
+        }
+        visit(node.getThenBlock());
+        if (node.getElseBlock() != null) {
+            visit(node.getElseBlock());
+        }
+    }
 
-            if (!left.equals(right)) {
-                throw new RuntimeException("OperatorError: Type mismatch in " + ben.getType() + " operation: " + left + " and " + right);
+    private void visitWhile(WhileNode node) {
+        String condType = inferType(node.getCondition());
+        if (!"BOOL".equals(condType)) {
+            throw new RuntimeException(
+                    "MissingConditionError: 'while' condition must be BOOL, found '" +
+                    condType + "'.");
+        }
+        visit(node.getBody());
+    }
+
+    private void visitFor(ForNode node) {
+        symbolTable.enterScope();
+        visit(node.getInit());
+
+        String startType = inferType(node.getRangeStart());
+        String endType   = inferType(node.getRangeEnd());
+        if (!"INT".equals(startType) || !"INT".equals(endType)) {
+            throw new RuntimeException(
+                    "MissingConditionError: For loop range bounds must be INT, found '" +
+                    startType + "' and '" + endType + "'.");
+        }
+        for (ASTNode stmt : node.getBody().getStatements()) {
+            visit(stmt);
             }
-            return ben.getType().equals("Relational") ? "BOOL" : left;
+        symbolTable.exitScope();
+    }
         }
         if (node instanceof FunctionCallNode) {
             return handleFunctionCall((FunctionCallNode) node);
@@ -268,24 +313,100 @@ public class SemanticAnalyzer {
         }
     }
 
-    private void visitFor(ForNode node) {
-        symbolTable.enterScope();
-        visit(node.getInit());
-        if (!"INT".equals(inferType(node.getRangeStart())) || !"INT".equals(inferType(node.getRangeEnd()))) {
-            throw new RuntimeException("TypeError: For loop range must be INT");
+    private String inferBinaryType(BinaryExpressionNode node) {
+        String op        = node.getOperator();
+        String exprClass = node.getType();
+        String leftType  = inferType(node.getLeft());
+        String rightType = inferType(node.getRight());
+
+        switch (exprClass) {
+            case "Arithmetic": {
+                if ("%".equals(op)) {
+                    if (!"INT".equals(leftType) || !"INT".equals(rightType)) {
+                        throw new RuntimeException(
+                                "OperatorError: Operator '%' requires INT operands, found '" +
+                                leftType + "' and '" + rightType + "'.");
+                    }
+                    return "INT";
+                }
+
+                if ("+".equals(op) && "STRING".equals(leftType) && "STRING".equals(rightType)) {
+                    return "STRING";
+                }
+
+                boolean leftNumeric  = "INT".equals(leftType)  || "FLOAT".equals(leftType);
+                boolean rightNumeric = "INT".equals(rightType) || "FLOAT".equals(rightType);
+
+                if (!leftNumeric || !rightNumeric) {
+                    throw new RuntimeException(
+                            "OperatorError: Arithmetic operator '" + op +
+                            "' requires numeric operands, found '" +
+                            leftType + "' and '" + rightType + "'.");
+                }
+
+                if ("FLOAT".equals(leftType) || "FLOAT".equals(rightType)) {
+                    return "FLOAT";
+                }
+                return "INT";
+            }
+            case "Relational": {
+                if ("==".equals(op) || "=/=".equals(op)) {
+                    if (!typesCompatible(leftType, rightType) && !typesCompatible(rightType, leftType)) {
+                        throw new RuntimeException(
+                                "OperatorError: Operator '" + op +
+                                "' cannot compare '" + leftType +
+                                "' with '" + rightType + "'.");
+                    }
+                    return "BOOL";
+                }
+
+                boolean leftNumeric  = "INT".equals(leftType)  || "FLOAT".equals(leftType);
+                boolean rightNumeric = "INT".equals(rightType) || "FLOAT".equals(rightType);
+                if (!leftNumeric || !rightNumeric) {
+                    throw new RuntimeException(
+                            "OperatorError: Relational operator '" + op +
+                            "' requires numeric operands, found '" +
+                            leftType + "' and '" + rightType + "'.");
+                }
+                return "BOOL";
+            }
+            case "Logical": {
+                if (!"BOOL".equals(leftType) || !"BOOL".equals(rightType)) {
+                    throw new RuntimeException(
+                            "OperatorError: Logical operator '" + op +
+                            "' requires BOOL operands, found '" +
+                            leftType + "' and '" + rightType + "'.");
+                }
+                return "BOOL";
+            }
+
+            default:
+                throw new RuntimeException(
+                        "OperatorError: Unknown operator class '" +
+                        exprClass + "'.");
         }
-        visit(node.getBody());
-        symbolTable.exitScope();
     }
 
-    private void visitFunction(FunctionNode node) {
-        symbolTable.enterScope();
+    private String inferMemberAccessType(MemberAccessNode node) {
+        String collType  = inferType(node.getCollection());
+        String fieldName = node.getMember();
+        String baseType = collType.replace("[]", "");
 
-        // Register parameters as local variables
-        for (ASTNode arg : node.getArgs()) {
-            if (arg instanceof AssignmentNode) {
-                AssignmentNode param = (AssignmentNode) arg;
-                symbolTable.declare(param.getIdentifier(), param.getType(), false);
+        if (!collectionRegistry.containsKey(baseType)) {
+            throw new RuntimeException(
+                    "TypeError: Member access '." + fieldName +
+                    "' on non-collection type '" + collType + "'.");
+        }
+
+        for (FieldDef field : collectionRegistry.get(baseType)) {
+            if (field.name.equals(fieldName)) {
+                return field.type;
+            }
+        }
+
+        throw new RuntimeException(
+                "TypeError: Collection '" + baseType +
+                "' has no field named '" + fieldName + "'.");
             }
 
     private boolean typesCompatible(String expected, String actual) {
@@ -303,4 +424,3 @@ public class SemanticAnalyzer {
                 "BOOL".equals(type) || "STRING".equals(type);
         }
     }
-}
