@@ -40,7 +40,8 @@ public class SymbolTable {
     // adds a new variable.
     public void declare(String name, String type, boolean isFinal) {
         if (scopes.peek().containsKey(name)) {
-            System.err.print("ScopeError: Variable '" + name + "' is already defined in this scope.");
+            System.err.print("ScopeError: Variable '" + name +
+                    "' is already defined in this scope.");
             System.exit(2);
         }
         scopes.peek().put(name, new Symbol(type, isFinal));
@@ -51,9 +52,22 @@ public class SymbolTable {
                 return scopes.get(i).get(name).type;
             }
         }
-        System.err.println("ScopeError: Variable '" + name + "' is not defined in any accessible scope.");
+        System.err.println("ScopeError: Variable '" + name +
+                "' is not defined in any accessible scope.");
         System.exit(2);
         return null;
+    }
+
+    public void markFinal(String name) {
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) {
+                scopes.get(i).get(name).isFinal = true;
+                return;
+            }
+        }
+        throw new RuntimeException(
+                "Internal Error: markFinal called on undeclared variable '" +
+                name + "'.");
     }
 
     public boolean isFinal(String name) {
