@@ -55,10 +55,13 @@ public class SemanticAnalyzer {
     public void analyze(ASTNode root) {
         try {
             preRegister(root);
-            visit(root);
-            System.out.println("Semantic Analysis Successful!");
+            if (root instanceof BlockNode) {
+                for (ASTNode stmt : ((BlockNode) root).getStatements()) {
+                    visit(stmt);
+                }
+            }
         } catch (RuntimeException e) {
-            System.err.println(e.getMessage());
+            System.out.println(e.getMessage());
             System.exit(2);
         }
     }

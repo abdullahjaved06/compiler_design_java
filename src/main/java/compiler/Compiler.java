@@ -13,28 +13,40 @@ import java.io.FileReader;
 
 public class Compiler {
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("No arguments provided. Running default Parser test...");
+        if (args.length == 1 && !args[0].startsWith("-")) {
+            try {
+                runSemantic(args[0]);
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                System.exit(1);
+            }
+            return;
+        }
+
+        if (args.length == 0) {
             runTest();
             return;
         }
-        String mode = args[0];
-        String filepath = args[1];
-        try {
-            if (mode.equals("-lexer")) {
-                runLexer(filepath);
-            } else if (mode.equals("-parser")) {
-                runParser(filepath);
-            } else if (mode.equals("-semantic")) {
-                runSemantic(filepath);
-            } else {
-                System.out.println("Unknown mode: " + mode);
+
+        if (args.length >= 2) {
+            String mode = args[0];
+            String filepath = args[1];
+            try {
+                if (mode.equals("-lexer")) {
+                    runLexer(filepath);
+                } else if (mode.equals("-parser")) {
+                    runParser(filepath);
+                } else if (mode.equals("-semantic")) {
+                    runSemantic(filepath);
+                } else {
+                    System.out.println("Unknown mode: " + mode);
+                    System.exit(1);
+                }
+            } catch (Exception e) {
+                // Requirement: Report syntax error and return non-zero for Inginious
+                System.err.println(e.getMessage());
                 System.exit(1);
             }
-        } catch (Exception e) {
-            // Requirement: Report syntax error and return non-zero for Inginious
-            System.err.println(e.getMessage());
-            System.exit(1);
         }
     }
 

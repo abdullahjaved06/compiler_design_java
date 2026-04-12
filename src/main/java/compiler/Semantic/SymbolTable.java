@@ -40,9 +40,9 @@ public class SymbolTable {
     // adds a new variable.
     public void declare(String name, String type, boolean isFinal) {
         if (scopes.peek().containsKey(name)) {
-            System.err.print("ScopeError: Variable '" + name +
+            throw new RuntimeException(
+                    "ScopeError: Variable '" + name +
                     "' is already defined in this scope.");
-            System.exit(2);
         }
         scopes.peek().put(name, new Symbol(type, isFinal));
     }
@@ -52,10 +52,9 @@ public class SymbolTable {
                 return scopes.get(i).get(name).type;
             }
         }
-        System.err.println("ScopeError: Variable '" + name +
+        throw new RuntimeException(
+                "ScopeError: Variable '" + name +
                 "' is not defined in any accessible scope.");
-        System.exit(2);
-        return null;
     }
 
     public void markFinal(String name) {
