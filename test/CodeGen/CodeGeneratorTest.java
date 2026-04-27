@@ -49,4 +49,17 @@ public class CodeGeneratorTest {
         assertTrue(Files.exists(outputFile));
         assertTrue(Files.size(outputFile) > 0);
     }
+    @Test
+    public void makesClassThatPrintsHello() throws Exception {
+        CodeGenerator generator = new CodeGenerator();
+
+        Path outputFile = Path.of("build/test-codegen/HelloTest.class");
+
+        Files.deleteIfExists(outputFile);
+
+        generator.makeClassWithHelloMain("HelloTest", outputFile.toString());
+
+        assertTrue(Files.exists(outputFile));
+        assertTrue(Files.size(outputFile) > 0);
+    }
 }
