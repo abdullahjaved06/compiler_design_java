@@ -27,11 +27,27 @@ public class CodeGenerator {
 
         writer.visitEnd();
 
-        Path path = Path.of(outputFile);
-        if (path.getParent() != null) {
-            Files.createDirectories(path.getParent());
-        }
-        Files.write(path, writer.toByteArray());
+        writeFile(outputFile, writer.toByteArray());
+    }
+
+    public void makeClassWithEmptyMain(String className, String outputFile) throws IOException {
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+
+        writer.visit(
+                V1_8,
+                ACC_PUBLIC,
+                className,
+                null,
+                "java/lang/Object",
+                null
+        );
+
+        addConstructor(writer);
+        addEmptyMain(writer);
+
+        writer.visitEnd();
+
+        writeFile(outputFile, writer.toByteArray());
     }
 
     private void addConstructor(ClassWriter writer) {
@@ -57,5 +73,30 @@ public class CodeGenerator {
         method.visitInsn(RETURN);
         method.visitMaxs(0, 0);
         method.visitEnd();
+    }
+
+    private void addEmptyMain(ClassWriter writer) {
+        MethodVisitor method = writer.visitMethod(
+                ACC_PUBLIC | ACC_STATIC,
+                "main",
+                "([Ljava/lang/String;)V",
+                null,
+                null
+        );
+
+        method.visitCode();
+        method.visitInsn(RETURN);
+        method.visitMaxs(0, 0);
+        method.visitEnd();
+    }
+
+    private void writeFile(String outputFile, byte[] bytes) throws IOException {
+        Path path = Path.of(outputFile);
+
+        if (path.getParent() != null) {
+            Files.createDirectories(path.getParent());
+        }
+
+        Files.write(path, bytes);
     }
 }
