@@ -36,6 +36,13 @@ public class CodeGenerator {
 
         writeFile(outputFile, writer.toByteArray());
     }
+    public void makeHelloClass(String outputFile) throws IOException {
+        String className = classNameFromFile(outputFile);
+        makeClassWithHelloMain(className, outputFile);
+    }
+    public void generate(String outputFile) throws IOException {
+        makeHelloClass(outputFile);
+    }
 
     private ClassWriter startClass(String className) {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
@@ -126,7 +133,15 @@ public class CodeGenerator {
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
+    private String classNameFromFile(String outputFile) {
+        String fileName = Path.of(outputFile).getFileName().toString();
 
+        if (fileName.endsWith(".class")) {
+            fileName = fileName.substring(0, fileName.length() - 6);
+        }
+
+        return fileName;
+    }
     private void writeFile(String outputFile, byte[] bytes) throws IOException {
         Path path = Path.of(outputFile);
 

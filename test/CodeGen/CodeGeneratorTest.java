@@ -62,4 +62,30 @@ public class CodeGeneratorTest {
         assertTrue(Files.exists(outputFile));
         assertTrue(Files.size(outputFile) > 0);
     }
+    @Test
+    public void usesOutputFileNameAsClassName() throws Exception {
+        CodeGenerator generator = new CodeGenerator();
+
+        Path outputFile = Path.of("build/test-codegen/test.class");
+
+        Files.deleteIfExists(outputFile);
+
+        generator.makeHelloClass(outputFile.toString());
+
+        assertTrue(Files.exists(outputFile));
+        assertTrue(Files.size(outputFile) > 0);
+    }
+    @Test
+    public void generateCreatesRunnableClass() throws Exception {
+        CodeGenerator generator = new CodeGenerator();
+
+        Path outputFile = Path.of("build/test-codegen/Generated.class");
+
+        Files.deleteIfExists(outputFile);
+
+        generator.generate(outputFile.toString());
+
+        assertTrue(Files.exists(outputFile));
+        assertTrue(Files.size(outputFile) > 0);
+    }
 }
