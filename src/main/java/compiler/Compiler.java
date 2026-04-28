@@ -6,6 +6,7 @@ import compiler.Lexer.TokenType;
 import compiler.Parser.Parser;
 import compiler.Parser.AST.ASTNode;
 import compiler.Semantic.SemanticAnalyzer;
+import compiler.CodeGen.CodeGenerator;
 
 import java.io.StringReader;
 import java.io.Reader;
@@ -13,6 +14,15 @@ import java.io.FileReader;
 
 public class Compiler {
     public static void main(String[] args) {
+        if (args.length == 3 && args[1].equals("-o")) {
+            try {
+                runCodeGeneration(args[0], args[2]);
+            } catch (Exception e) {
+                System.err.println(e.getMessage());
+                System.exit(1);
+            }
+            return;
+        }
         if (args.length == 1 && !args[0].startsWith("-")) {
             try {
                 runSemantic(args[0]);
@@ -89,6 +99,21 @@ public class Compiler {
                 SemanticAnalyzer analyzer = new SemanticAnalyzer();
                 analyzer.analyze(root);
             }
+        }
+    }
+    private static void runCodeGeneration(String sourceFile, String outputFile) throws Exception {
+        try (Reader reader = new FileReader(sourceFile)) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+
+            SemanticAnalyzer analyzer = new SemanticAnalyzer();
+            analyzer.analyze(root);
+
+            CodeGenerator generator = new CodeGenerator();
+            generator.generate(outputFile);
+
+            System.out.println("Generated class file: " + outputFile);
         }
     }
 
