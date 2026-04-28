@@ -1,0 +1,7 @@
+def main() {
+    println("hello");
+    println(123);
+    println(3.5);
+    println(true);
+    println(false);
+}
