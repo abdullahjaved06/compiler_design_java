@@ -111,7 +111,7 @@ public class Compiler {
             analyzer.analyze(root);
 
             CodeGenerator generator = new CodeGenerator();
-            generator.generate(outputFile);
+            generator.generate(root, outputFile);
 
             System.out.println("Generated class file: " + outputFile);
         }
