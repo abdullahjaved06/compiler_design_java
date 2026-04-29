@@ -16,7 +16,7 @@ import org.objectweb.asm.MethodVisitor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
+import compiler.Parser.AST.BinaryExpressionNode;
 import static org.objectweb.asm.Opcodes.*;
 
 public class CodeGenerator {
@@ -279,10 +279,52 @@ public class CodeGenerator {
             return generateIdentifier(identifier, method);
         }
 
+        if (expression instanceof BinaryExpressionNode binary) {
+            return generateBinaryExpression(binary, method);
+        }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported expression: "
                         + expression.getClass().getSimpleName()
         );
+    }
+    private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
+        String leftType = generateExpression(binary.getLeft(), method);
+        String rightType = generateExpression(binary.getRight(), method);
+
+        if (!leftType.equals("INT") || !rightType.equals("INT")) {
+            throw new RuntimeException("CodeGenerationError: only INT arithmetic is supported for now.");
+        }
+
+        switch (binary.getOperator()) {
+            case "+":
+                method.visitInsn(IADD);
+                break;
+
+            case "-":
+                method.visitInsn(ISUB);
+                break;
+
+            case "*":
+                method.visitInsn(IMUL);
+                break;
+
+            case "/":
+                method.visitInsn(IDIV);
+                break;
+
+            case "%":
+                method.visitInsn(IREM);
+                break;
+
+            default:
+                throw new RuntimeException(
+                        "CodeGenerationError: unsupported arithmetic operator: "
+                                + binary.getOperator()
+                );
+        }
+
+        return "INT";
     }
     private String generateIdentifier(IdentifierNode identifier, MethodVisitor method) {
         String name = identifier.getName();

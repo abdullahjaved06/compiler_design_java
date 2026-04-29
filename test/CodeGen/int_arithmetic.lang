@@ -1,0 +1,13 @@
+def main() {
+    INT a = 10 + 5;
+    INT b = 20 - 3;
+    INT c = 4 * 6;
+    INT d = 20 / 4;
+    INT e = 22 % 5;
+
+    println(a);
+    println(b);
+    println(c);
+    println(d);
+    println(e);
+}

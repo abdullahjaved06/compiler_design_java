@@ -96,4 +96,38 @@ public class CodeGeneratorTest {
         assertTrue(Files.exists(outputFile));
         assertTrue(Files.size(outputFile) > 0);
     }
+    @Test
+    public void compilesAndRunsVariableDeclarations() throws Exception {
+        Path sourceFile = Path.of("test/CodeGen/variables.lang");
+        Path outputFile = Path.of("build/test-codegen/variables.class");
+
+        Files.deleteIfExists(outputFile);
+
+        try (Reader reader = new FileReader(sourceFile.toFile())) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+
+            SemanticAnalyzer analyzer = new SemanticAnalyzer();
+            analyzer.analyze(root);
+
+            CodeGenerator generator = new CodeGenerator();
+            generator.generate(root, outputFile.toString());
+        }
+
+        Process process = new ProcessBuilder(
+                "java",
+                "-cp",
+                "build/test-codegen",
+                "variables"
+        ).redirectErrorStream(true).start();
+
+        String output = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+
+        output = output.replace("\r\n", "\n");
+
+        assertEquals(0, exitCode);
+        assertEquals("10\ncompiler\n2.5\ntrue\n", output);
+    }
 }
