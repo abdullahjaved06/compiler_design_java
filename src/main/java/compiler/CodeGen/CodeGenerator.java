@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import compiler.Parser.AST.BinaryExpressionNode;
 import static org.objectweb.asm.Opcodes.*;
+import compiler.Parser.AST.IfNode;
 
 public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
@@ -183,15 +184,17 @@ public class CodeGenerator {
         localTypes.clear();
         nextSlot = 1;
 
-        for (ASTNode statement : body.getStatements()) {
-            generateStatement(statement, method);
-        }
+        generateBlock(body, method);
 
         method.visitInsn(RETURN);
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
-
+    private void generateBlock(BlockNode block, MethodVisitor method) {
+        for (ASTNode statement : block.getStatements()) {
+            generateStatement(statement, method);
+        }
+    }
     private void generateStatement(ASTNode statement, MethodVisitor method) {
         if (statement instanceof FunctionCallNode call) {
             generateFunctionCall(call, method);
@@ -203,10 +206,39 @@ public class CodeGenerator {
             return;
         }
 
+        if (statement instanceof IfNode ifNode) {
+            generateIf(ifNode, method);
+            return;
+        }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported statement: "
                         + statement.getClass().getSimpleName()
         );
+    }
+    private void generateIf(IfNode ifNode, MethodVisitor method) {
+        String conditionType = generateExpression(ifNode.getCondition(), method);
+
+        if (!"BOOL".equals(conditionType)) {
+            throw new RuntimeException("CodeGenerationError: if condition must be BOOL.");
+        }
+
+        Label elseLabel = new Label();
+        Label endLabel = new Label();
+
+        method.visitJumpInsn(IFEQ, elseLabel);
+
+        generateBlock(ifNode.getThenBlock(), method);
+
+        method.visitJumpInsn(GOTO, endLabel);
+
+        method.visitLabel(elseLabel);
+
+        if (ifNode.getElseBlock() != null) {
+            generateBlock(ifNode.getElseBlock(), method);
+        }
+
+        method.visitLabel(endLabel);
     }
     private void generateAssignment(AssignmentNode assignment, MethodVisitor method) {
         String name = assignment.getIdentifier();
