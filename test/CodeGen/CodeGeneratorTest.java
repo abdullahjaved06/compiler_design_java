@@ -8,7 +8,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertTrue;
+import compiler.Lexer.Lexer;
+import compiler.Parser.Parser;
+import compiler.Parser.AST.ASTNode;
+import compiler.Semantic.SemanticAnalyzer;
 
+import java.io.FileReader;
+import java.io.Reader;
+
+import static org.junit.Assert.assertEquals;
 
 public class CodeGeneratorTest {
     @Test

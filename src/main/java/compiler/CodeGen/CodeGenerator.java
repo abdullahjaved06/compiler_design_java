@@ -5,6 +5,10 @@ import compiler.Parser.AST.BlockNode;
 import compiler.Parser.AST.FunctionCallNode;
 import compiler.Parser.AST.FunctionNode;
 import compiler.Parser.AST.LiteralNode;
+import compiler.Parser.AST.AssignmentNode;
+import compiler.Parser.AST.IdentifierNode;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -16,7 +20,9 @@ import java.nio.file.Path;
 import static org.objectweb.asm.Opcodes.*;
 
 public class CodeGenerator {
-
+    private final Map<String, Integer> localSlots = new HashMap<>();
+    private final Map<String, String> localTypes = new HashMap<>();
+    private int nextSlot = 1;
     public void makeEmptyClass(String className, String outputFile) throws IOException {
         ClassWriter writer = startClass(className);
         writer.visitEnd();
@@ -173,6 +179,9 @@ public class CodeGenerator {
         );
 
         method.visitCode();
+        localSlots.clear();
+        localTypes.clear();
+        nextSlot = 1;
 
         for (ASTNode statement : body.getStatements()) {
             generateStatement(statement, method);
@@ -189,10 +198,41 @@ public class CodeGenerator {
             return;
         }
 
+        if (statement instanceof AssignmentNode assignment) {
+            generateAssignment(assignment, method);
+            return;
+        }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported statement: "
                         + statement.getClass().getSimpleName()
         );
+    }
+    private void generateAssignment(AssignmentNode assignment, MethodVisitor method) {
+        String name = assignment.getIdentifier();
+        String type = assignment.getType();
+
+        if (type == null) {
+            throw new RuntimeException("CodeGenerationError: reassignment is not supported yet: " + name);
+        }
+
+        if (assignment.getExpression() == null) {
+            throw new RuntimeException("CodeGenerationError: declaration without value is not supported yet: " + name);
+        }
+
+        String valueType = generateExpression(assignment.getExpression(), method);
+
+        if (!type.equals(valueType)) {
+            throw new RuntimeException("CodeGenerationError: variable type mismatch for " + name);
+        }
+
+        int slot = nextSlot;
+        nextSlot++;
+
+        localSlots.put(name, slot);
+        localTypes.put(name, type);
+
+        method.visitVarInsn(storeOpcode(type), slot);
     }
 
     private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
@@ -235,10 +275,28 @@ public class CodeGenerator {
             return generateLiteral(literal, method);
         }
 
+        if (expression instanceof IdentifierNode identifier) {
+            return generateIdentifier(identifier, method);
+        }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported expression: "
                         + expression.getClass().getSimpleName()
         );
+    }
+    private String generateIdentifier(IdentifierNode identifier, MethodVisitor method) {
+        String name = identifier.getName();
+
+        if (!localSlots.containsKey(name)) {
+            throw new RuntimeException("CodeGenerationError: unknown variable: " + name);
+        }
+
+        String type = localTypes.get(name);
+        int slot = localSlots.get(name);
+
+        method.visitVarInsn(loadOpcode(type), slot);
+
+        return type;
     }
 
     private String generateLiteral(LiteralNode literal, MethodVisitor method) {
@@ -282,6 +340,39 @@ public class CodeGenerator {
 
             default:
                 throw new RuntimeException("CodeGenerationError: unsupported type: " + type);
+        }
+    }
+    private int storeOpcode(String type) {
+        switch (type) {
+            case "INT":
+            case "BOOL":
+                return ISTORE;
+
+            case "FLOAT":
+                return FSTORE;
+
+            case "STRING":
+                return ASTORE;
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
+        }
+    }
+
+    private int loadOpcode(String type) {
+        switch (type) {
+            case "INT":
+            case "BOOL":
+                return ILOAD;
+
+            case "FLOAT":
+                return FLOAD;
+
+            case "STRING":
+                return ALOAD;
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
         }
     }
 

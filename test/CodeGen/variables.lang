@@ -1,0 +1,11 @@
+def main() {
+    INT x = 10;
+    STRING name = "compiler";
+    FLOAT f = 2.5;
+    BOOL ok = true;
+
+    println(x);
+    println(name);
+    println(f);
+    println(ok);
+}
