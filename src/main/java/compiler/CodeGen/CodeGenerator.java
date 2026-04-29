@@ -12,7 +12,7 @@ import java.util.Map;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-
+import org.objectweb.asm.Label;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -292,39 +292,177 @@ public class CodeGenerator {
         String leftType = generateExpression(binary.getLeft(), method);
         String rightType = generateExpression(binary.getRight(), method);
 
-        if (!leftType.equals("INT") || !rightType.equals("INT")) {
-            throw new RuntimeException("CodeGenerationError: only INT arithmetic is supported for now.");
+        if (leftType.equals("INT") && rightType.equals("INT")) {
+            return generateIntBinary(binary.getOperator(), method);
         }
 
+        if (leftType.equals("BOOL") && rightType.equals("BOOL")) {
+            return generateBoolBinary(binary.getOperator(), method);
+        }
+
+        throw new RuntimeException(
+                "CodeGenerationError: unsupported binary operation for "
+                        + leftType + " and " + rightType
+        );
+    }
+    private String generateIntBinary(String operator, MethodVisitor method) {
+        switch (operator) {
+            case "+":
+                method.visitInsn(IADD);
+                return "INT";
+
+            case "-":
+                method.visitInsn(ISUB);
+                return "INT";
+
+            case "*":
+                method.visitInsn(IMUL);
+                return "INT";
+
+            case "/":
+                method.visitInsn(IDIV);
+                return "INT";
+
+            case "%":
+                method.visitInsn(IREM);
+                return "INT";
+
+            case "==":
+                return generateIntComparison(IF_ICMPEQ, method);
+
+            case "=/=":
+            case "!=":
+                return generateIntComparison(IF_ICMPNE, method);
+
+            case "<":
+                return generateIntComparison(IF_ICMPLT, method);
+
+            case ">":
+                return generateIntComparison(IF_ICMPGT, method);
+
+            case "<=":
+                return generateIntComparison(IF_ICMPLE, method);
+
+            case ">=":
+                return generateIntComparison(IF_ICMPGE, method);
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported INT operator: " + operator);
+        }
+    }
+
+    private String generateBoolBinary(String operator, MethodVisitor method) {
+        switch (operator) {
+            case "&&":
+                method.visitInsn(IAND);
+                return "BOOL";
+
+            case "||":
+                method.visitInsn(IOR);
+                return "BOOL";
+
+            case "==":
+                return generateIntComparison(IF_ICMPEQ, method);
+
+            case "=/=":
+            case "!=":
+                return generateIntComparison(IF_ICMPNE, method);
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported BOOL operator: " + operator);
+        }
+    }
+
+    private String generateIntComparison(int jumpOpcode, MethodVisitor method) {
+        Label trueLabel = new Label();
+        Label endLabel = new Label();
+
+        method.visitJumpInsn(jumpOpcode, trueLabel);
+
+        method.visitInsn(ICONST_0);
+        method.visitJumpInsn(GOTO, endLabel);
+
+        method.visitLabel(trueLabel);
+        method.visitInsn(ICONST_1);
+
+        method.visitLabel(endLabel);
+
+        return "BOOL";
+    }
+    private String generateIntBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
         switch (binary.getOperator()) {
             case "+":
                 method.visitInsn(IADD);
                 break;
-
             case "-":
                 method.visitInsn(ISUB);
                 break;
-
             case "*":
                 method.visitInsn(IMUL);
                 break;
-
             case "/":
                 method.visitInsn(IDIV);
                 break;
-
             case "%":
                 method.visitInsn(IREM);
                 break;
-
+            case "==":
+                method.visitJumpInsn(IF_ICMPEQ, new Label());
+                break;
+            case "!=":
+                method.visitJumpInsn(IF_ICMPNE, new Label());
+                break;
+            case "<":
+                method.visitJumpInsn(IF_ICMPLT, new Label());
+                break;
+            case ">":
+                method.visitJumpInsn(IF_ICMPGT, new Label());
+                break;
+            case "<=":
+                method.visitJumpInsn(IF_ICMPLE, new Label());
+                break;
+            case ">=":
+                method.visitJumpInsn(IF_ICMPGE, new Label());
+                break;
             default:
-                throw new RuntimeException(
-                        "CodeGenerationError: unsupported arithmetic operator: "
-                                + binary.getOperator()
-                );
+                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
         }
 
         return "INT";
+    }
+    private String generateFloatBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
+        switch (binary.getOperator()) {
+            case "+":
+                method.visitInsn(FADD);
+                break;
+            case "-":
+                method.visitInsn(FSUB);
+                break;
+            case "*":
+                method.visitInsn(FMUL);
+                break;
+            case "/":
+                method.visitInsn(FDIV);
+                break;
+            default:
+                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
+        }
+
+        return "FLOAT";
+    }
+    private String generateBoolBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
+        switch (binary.getOperator()) {
+            case "&&":
+                method.visitInsn(IAND);
+                break;
+            case "||":
+                method.visitInsn(IOR);
+                break;
+            default:
+                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
+        }
+
+        return "BOOL";
     }
     private String generateIdentifier(IdentifierNode identifier, MethodVisitor method) {
         String name = identifier.getName();

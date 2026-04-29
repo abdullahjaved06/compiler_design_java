@@ -1,0 +1,16 @@
+def main() {
+    INT a = 10 + 5;
+    INT b = 20 - 3;
+
+    BOOL c = a == b;
+    BOOL d = a =/= b;
+    BOOL e = a < b;
+    BOOL f = a >= b;
+
+    println(a);
+    println(b);
+    println(c);
+    println(d);
+    println(e);
+    println(f);
+}
