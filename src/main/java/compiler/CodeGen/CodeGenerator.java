@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import compiler.Parser.AST.BinaryExpressionNode;
 import static org.objectweb.asm.Opcodes.*;
 import compiler.Parser.AST.IfNode;
+import compiler.Parser.AST.WhileNode;
 
 public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
@@ -210,11 +211,33 @@ public class CodeGenerator {
             generateIf(ifNode, method);
             return;
         }
-
+        if (statement instanceof WhileNode whileNode){
+            generateWhile(whileNode, method);
+            return;
+        }
         throw new RuntimeException(
                 "CodeGenerationError: unsupported statement: "
                         + statement.getClass().getSimpleName()
         );
+    }
+    private void generateWhile(WhileNode whileNode, MethodVisitor method) {
+        Label startLabel = new Label();
+        Label endLabel = new Label();
+
+        method.visitLabel(startLabel);
+
+        String conditionType = generateExpression(whileNode.getCondition(), method);
+
+        if (!"BOOL".equals(conditionType)) {
+            throw new RuntimeException("CodeGenerationError: while condition must be BOOL.");
+        }
+
+        method.visitJumpInsn(IFEQ, endLabel);
+
+        generateBlock(whileNode.getBody(), method);
+
+        method.visitJumpInsn(GOTO, startLabel);
+        method.visitLabel(endLabel);
     }
     private void generateIf(IfNode ifNode, MethodVisitor method) {
         String conditionType = generateExpression(ifNode.getCondition(), method);
