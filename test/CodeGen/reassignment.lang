@@ -1,0 +1,10 @@
+def main() {
+    INT x = 10;
+    println(x);
+
+    x = 20;
+    println(x);
+
+    x = x + 5;
+    println(x);
+}

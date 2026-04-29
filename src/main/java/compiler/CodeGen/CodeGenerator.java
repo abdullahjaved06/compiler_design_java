@@ -212,27 +212,38 @@ public class CodeGenerator {
         String name = assignment.getIdentifier();
         String type = assignment.getType();
 
-        if (type == null) {
-            throw new RuntimeException("CodeGenerationError: reassignment is not supported yet: " + name);
-        }
-
         if (assignment.getExpression() == null) {
-            throw new RuntimeException("CodeGenerationError: declaration without value is not supported yet: " + name);
+            throw new RuntimeException("CodeGenerationError: assignment without value is not supported yet: " + name);
         }
 
         String valueType = generateExpression(assignment.getExpression(), method);
 
-        if (!type.equals(valueType)) {
+        if (type != null) {
+            if (!type.equals(valueType)) {
+                throw new RuntimeException("CodeGenerationError: variable type mismatch for " + name);
+            }
+
+            int slot = nextSlot;
+            nextSlot++;
+
+            localSlots.put(name, slot);
+            localTypes.put(name, type);
+
+            method.visitVarInsn(storeOpcode(type), slot);
+            return;
+        }
+
+        if (!localSlots.containsKey(name)) {
+            throw new RuntimeException("CodeGenerationError: unknown variable: " + name);
+        }
+
+        String oldType = localTypes.get(name);
+
+        if (!oldType.equals(valueType)) {
             throw new RuntimeException("CodeGenerationError: variable type mismatch for " + name);
         }
 
-        int slot = nextSlot;
-        nextSlot++;
-
-        localSlots.put(name, slot);
-        localTypes.put(name, type);
-
-        method.visitVarInsn(storeOpcode(type), slot);
+        method.visitVarInsn(storeOpcode(oldType), localSlots.get(name));
     }
 
     private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
