@@ -20,11 +20,13 @@ import compiler.Parser.AST.BinaryExpressionNode;
 import static org.objectweb.asm.Opcodes.*;
 import compiler.Parser.AST.IfNode;
 import compiler.Parser.AST.WhileNode;
+import compiler.Parser.AST.FunctionNode;
 
 public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
     private final Map<String, String> localTypes = new HashMap<>();
     private int nextSlot = 1;
+    private String currentClassName;
     public void makeEmptyClass(String className, String outputFile) throws IOException {
         ClassWriter writer = startClass(className);
         writer.visitEnd();
@@ -50,20 +52,26 @@ public class CodeGenerator {
         makeClassWithHelloMain(className, outputFile);
     }
 
-    public void generate(String outputFile) throws IOException {
-        makeHelloClass(outputFile);
-    }
-
     public void generate(ASTNode root, String outputFile) throws IOException {
         String className = classNameFromFile(outputFile);
-
+        this.currentClassName = className;
         ClassWriter writer = startClass(className);
 
-        FunctionNode mainFunction = findMain(root);
-        addMainFromBlock(writer, mainFunction.getBody());
+        if (!(root instanceof BlockNode block)) {
+            throw new RuntimeException("CodeGenerationError: root must be BlockNode.");
+        }
+
+        for (ASTNode node : block.getStatements()) {
+            if (node instanceof FunctionNode functionNode) {
+                if ("main".equals(functionNode.getName())) {
+                    addMainFromBlock(writer, functionNode.getBody());
+                } else {
+                    addSimpleFunction(writer, functionNode);
+                }
+            }
+        }
 
         writer.visitEnd();
-
         writeFile(outputFile, writer.toByteArray());
     }
 
@@ -191,6 +199,27 @@ public class CodeGenerator {
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
+    private void addSimpleFunction(ClassWriter writer, FunctionNode function) {
+        MethodVisitor method = writer.visitMethod(
+                ACC_PUBLIC | ACC_STATIC,
+                function.getName(),
+                "()V",
+                null,
+                null
+        );
+
+        method.visitCode();
+
+        localSlots.clear();
+        localTypes.clear();
+        nextSlot = 0;
+
+        generateBlock(function.getBody(), method);
+
+        method.visitInsn(RETURN);
+        method.visitMaxs(0, 0);
+        method.visitEnd();
+    }
     private void generateBlock(BlockNode block, MethodVisitor method) {
         for (ASTNode statement : block.getStatements()) {
             generateStatement(statement, method);
@@ -302,14 +331,27 @@ public class CodeGenerator {
     }
 
     private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
-        if ("println".equals(call.getFunctionName())) {
+        String name = call.getFunctionName();
+
+        if ("println".equals(name)) {
             generatePrintln(call, method);
             return;
         }
 
+        // user-defined function call
+        if (call.getArguments().isEmpty()) {
+            method.visitMethodInsn(
+                    INVOKESTATIC,
+                    currentClassName,
+                    name,
+                    "()V",
+                    false
+            );
+            return;
+        }
+
         throw new RuntimeException(
-                "CodeGenerationError: unsupported function call: "
-                        + call.getFunctionName()
+                "CodeGenerationError: unsupported function call: " + name
         );
     }
 

@@ -89,9 +89,19 @@ public class Parser {
             return node;
         }
 
-        // Fallback for raw identifiers (e.g., re-assignment like x = 10;)
+        // Identifier can be either reassignment: x = 10;
+// or function call: helper();
         if (type == TokenType.IDENTIFIER) {
-            return parseAssignment();
+            String name = currentSymbol.getValue();
+            advance();
+
+            if (currentSymbol.getType() == TokenType.LPAREN) {
+                ASTNode call = parseFunctionCallAfterName(name);
+                match(TokenType.SEMICOLON);
+                return call;
+            }
+
+            return parseAssignmentAfterName(name);
         }
 
         throw new RuntimeException("Syntax Error: Unexpected token " + type + " at line " + currentSymbol.getLine());
@@ -137,30 +147,43 @@ public class Parser {
         match(TokenType.DEF);
 
         String returnType = null;
-        if (currentSymbol.getType() != TokenType.MAIN) {
-            returnType = currentSymbol.getValue();
-            advance();
-        }
+        String name;
 
-        String name = null;
-        if (currentSymbol.getType() == TokenType.IDENTIFIER ||
-                currentSymbol.getType() == TokenType.MAIN) {
+        if (currentSymbol.getType() == TokenType.MAIN) {
             name = currentSymbol.getValue();
             advance();
+        } else if (currentSymbol.getType() == TokenType.IDENTIFIER) {
+            name = currentSymbol.getValue();
+            advance();
+        } else {
+            returnType = parseTypeString();
+
+            name = currentSymbol.getValue();
+            if (currentSymbol.getType() == TokenType.IDENTIFIER ||
+                    currentSymbol.getType() == TokenType.MAIN) {
+                advance();
+            } else {
+                throw new RuntimeException("Syntax Error: Expected function name after return type.");
+            }
         }
+
         match(TokenType.LPAREN);
 
         java.util.List<ASTNode> args = new java.util.ArrayList<>();
+
         if (currentSymbol.getType() != TokenType.RPAREN) {
             args.add(parseArguments());
+
             while (currentSymbol.getType() == TokenType.COMMA) {
                 advance();
                 args.add(parseArguments());
             }
         }
+
         match(TokenType.RPAREN);
 
         BlockNode body = parseBlock();
+
         return new FunctionNode(returnType, name, args, body);
     }
 
@@ -277,7 +300,41 @@ public class Parser {
 
         return new AssignmentNode(typeStr, id, rhs);
     }
+    private ASTNode parseFunctionCallAfterName(String name) {
+        match(TokenType.LPAREN);
 
+        java.util.List<ASTNode> args = new java.util.ArrayList<>();
+
+        if (currentSymbol.getType() != TokenType.RPAREN) {
+            args.add(parseExpression());
+
+            while (currentSymbol.getType() == TokenType.COMMA) {
+                advance();
+                args.add(parseExpression());
+            }
+        }
+
+        match(TokenType.RPAREN);
+
+        return new FunctionCallNode(name, args);
+    }
+
+    private ASTNode parseAssignmentAfterName(String id) {
+        String typeStr = null;
+
+        if (currentSymbol.getType() == TokenType.SEMICOLON) {
+            match(TokenType.SEMICOLON);
+            return new AssignmentNode(typeStr, id);
+        }
+
+        match(TokenType.ASSIGN);
+
+        ASTNode rhs = parseExpression();
+
+        match(TokenType.SEMICOLON);
+
+        return new AssignmentNode(typeStr, id, rhs);
+    }
     public ASTNode parseExpression() {
         return parseLogicalOR();
     }

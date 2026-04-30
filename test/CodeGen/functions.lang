@@ -1,0 +1,9 @@
+def helper() {
+    println("inside helper");
+}
+
+def main() {
+    println("start");
+    helper();
+    println("end");
+}
