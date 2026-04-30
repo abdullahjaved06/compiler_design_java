@@ -1,0 +1,17 @@
+def INT add(INT a, INT b) {
+    return a + b;
+}
+
+def INT doubleValue(INT x) {
+    return x * 2;
+}
+
+def STRING joinText(STRING text) {
+    return text;
+}
+
+def main() {
+    println(add(3, 4));
+    println(doubleValue(6));
+    println(joinText("ok"));
+}

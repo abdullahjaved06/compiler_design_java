@@ -9,6 +9,8 @@ import compiler.Parser.AST.AssignmentNode;
 import compiler.Parser.AST.IdentifierNode;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -27,6 +29,7 @@ public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
     private final Map<String, String> localTypes = new HashMap<>();
     private final Map<String, String> functionTypes = new HashMap<>();
+    private final Map<String, List<String>> functionParams = new HashMap<>();
 
     private int nextSlot = 1;
     private String currentClassName;
@@ -68,6 +71,7 @@ public class CodeGenerator {
         }
 
         functionTypes.clear();
+        functionParams.clear();
 
         for (ASTNode node : block.getStatements()) {
             if (node instanceof FunctionNode functionNode) {
@@ -78,6 +82,7 @@ public class CodeGenerator {
                 }
 
                 functionTypes.put(functionNode.getName(), returnType);
+                functionParams.put(functionNode.getName(), getParameterTypes(functionNode));
             }
         }
 
@@ -94,7 +99,17 @@ public class CodeGenerator {
         writer.visitEnd();
         writeFile(outputFile, writer.toByteArray());
     }
+    private List<String> getParameterTypes(FunctionNode function) {
+        List<String> types = new ArrayList<>();
 
+        for (ASTNode arg : function.getArgs()) {
+            if (arg instanceof AssignmentNode assignment) {
+                types.add(assignment.getType());
+            }
+        }
+
+        return types;
+    }
     private ClassWriter startClass(String className) {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
@@ -226,10 +241,12 @@ public class CodeGenerator {
             returnType = "VOID";
         }
 
+        List<String> paramTypes = getParameterTypes(function);
+
         MethodVisitor method = writer.visitMethod(
                 ACC_PUBLIC | ACC_STATIC,
                 function.getName(),
-                "()" + descriptorFor(returnType),
+                methodDescriptor(paramTypes, returnType),
                 null,
                 null
         );
@@ -239,6 +256,17 @@ public class CodeGenerator {
         localSlots.clear();
         localTypes.clear();
         nextSlot = 0;
+
+        for (ASTNode arg : function.getArgs()) {
+            if (arg instanceof AssignmentNode assignment) {
+                String name = assignment.getIdentifier();
+                String type = assignment.getType();
+
+                localSlots.put(name, nextSlot);
+                localTypes.put(name, type);
+                nextSlot++;
+            }
+        }
 
         String oldReturnType = currentReturnType;
         currentReturnType = returnType;
@@ -392,10 +420,6 @@ public class CodeGenerator {
     private String generateFunctionCallExpression(FunctionCallNode call, MethodVisitor method) {
         String name = call.getFunctionName();
 
-        if (!call.getArguments().isEmpty()) {
-            throw new RuntimeException("CodeGenerationError: function arguments are not supported yet.");
-        }
-
         if (!functionTypes.containsKey(name)) {
             throw new RuntimeException("CodeGenerationError: unknown function: " + name);
         }
@@ -406,11 +430,15 @@ public class CodeGenerator {
             throw new RuntimeException("CodeGenerationError: void function cannot be used as expression.");
         }
 
+        List<String> paramTypes = functionParams.get(name);
+
+        generateCallArguments(call, paramTypes, method);
+
         method.visitMethodInsn(
                 INVOKESTATIC,
                 currentClassName,
                 name,
-                "()" + descriptorFor(returnType),
+                methodDescriptor(paramTypes, returnType),
                 false
         );
 
@@ -424,23 +452,41 @@ public class CodeGenerator {
             return;
         }
 
-        // user-defined function call
-        if (call.getArguments().isEmpty()) {
-            method.visitMethodInsn(
-                    INVOKESTATIC,
-                    currentClassName,
-                    name,
-                    "()V",
-                    false
-            );
-            return;
+        if (!functionTypes.containsKey(name)) {
+            throw new RuntimeException("CodeGenerationError: unknown function: " + name);
         }
 
-        throw new RuntimeException(
-                "CodeGenerationError: unsupported function call: " + name
-        );
-    }
+        String returnType = functionTypes.get(name);
+        List<String> paramTypes = functionParams.get(name);
 
+        generateCallArguments(call, paramTypes, method);
+
+        method.visitMethodInsn(
+                INVOKESTATIC,
+                currentClassName,
+                name,
+                methodDescriptor(paramTypes, returnType),
+                false
+        );
+
+        if (!"VOID".equals(returnType)) {
+            method.visitInsn(POP);
+        }
+    }
+    private void generateCallArguments(FunctionCallNode call, List<String> paramTypes, MethodVisitor method) {
+        if (call.getArguments().size() != paramTypes.size()) {
+            throw new RuntimeException("CodeGenerationError: wrong number of arguments for " + call.getFunctionName());
+        }
+
+        for (int i = 0; i < call.getArguments().size(); i++) {
+            String actualType = generateExpression(call.getArguments().get(i), method);
+            String expectedType = paramTypes.get(i);
+
+            if (!expectedType.equals(actualType)) {
+                throw new RuntimeException("CodeGenerationError: wrong argument type for " + call.getFunctionName());
+            }
+        }
+    }
     private void generatePrintln(FunctionCallNode call, MethodVisitor method) {
         if (call.getArguments().size() != 1) {
             throw new RuntimeException("CodeGenerationError: println expects 1 argument.");
@@ -699,7 +745,20 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported literal.");
         }
     }
+    private String methodDescriptor(List<String> paramTypes, String returnType) {
+        StringBuilder descriptor = new StringBuilder();
 
+        descriptor.append("(");
+
+        for (String paramType : paramTypes) {
+            descriptor.append(descriptorFor(paramType));
+        }
+
+        descriptor.append(")");
+        descriptor.append(descriptorFor(returnType));
+
+        return descriptor.toString();
+    }
     private String descriptorFor(String type) {
         switch (type) {
             case "INT":
