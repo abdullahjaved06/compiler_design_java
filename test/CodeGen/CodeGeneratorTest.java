@@ -91,7 +91,7 @@ public class CodeGeneratorTest {
 
         Files.deleteIfExists(outputFile);
 
-        generator.generate(outputFile.toString());
+        generator.makeHelloClass(outputFile.toString());
 
         assertTrue(Files.exists(outputFile));
         assertTrue(Files.size(outputFile) > 0);
@@ -129,5 +129,73 @@ public class CodeGeneratorTest {
 
         assertEquals(0, exitCode);
         assertEquals("10\ncompiler\n2.5\ntrue\n", output);
+    }
+    @Test
+    public void compilesAndRunsSimpleFunctions() throws Exception {
+        Path sourceFile = Path.of("test/CodeGen/functions.lang");
+        Path outputFile = Path.of("build/test-codegen/functions.class");
+
+        Files.deleteIfExists(outputFile);
+
+        try (Reader reader = new FileReader(sourceFile.toFile())) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+
+            SemanticAnalyzer analyzer = new SemanticAnalyzer();
+            analyzer.analyze(root);
+
+            CodeGenerator generator = new CodeGenerator();
+            generator.generate(root, outputFile.toString());
+        }
+
+        Process process = new ProcessBuilder(
+                "java",
+                "-cp",
+                "build/test-codegen",
+                "functions"
+        ).redirectErrorStream(true).start();
+
+        String output = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+
+        output = output.replace("\r\n", "\n");
+
+        assertEquals(0, exitCode);
+        assertEquals("start\ninside helper\nend\n", output);
+    }
+    @Test
+    public void compilesAndRunsReturnFunctions() throws Exception {
+        Path sourceFile = Path.of("test/CodeGen/return_function.lang");
+        Path outputFile = Path.of("build/test-codegen/return_function.class");
+
+        Files.deleteIfExists(outputFile);
+
+        try (Reader reader = new FileReader(sourceFile.toFile())) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+
+            SemanticAnalyzer analyzer = new SemanticAnalyzer();
+            analyzer.analyze(root);
+
+            CodeGenerator generator = new CodeGenerator();
+            generator.generate(root, outputFile.toString());
+        }
+
+        Process process = new ProcessBuilder(
+                "java",
+                "-cp",
+                "build/test-codegen",
+                "return_function"
+        ).redirectErrorStream(true).start();
+
+        String output = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+
+        output = output.replace("\r\n", "\n");
+
+        assertEquals(0, exitCode);
+        assertEquals("42\ndone\ntrue\n", output);
     }
 }

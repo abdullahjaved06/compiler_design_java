@@ -1,0 +1,17 @@
+def INT getNumber() {
+    return 42;
+}
+
+def STRING getText() {
+    return "done";
+}
+
+def BOOL getFlag() {
+    return true;
+}
+
+def main() {
+    println(getNumber());
+    println(getText());
+    println(getFlag());
+}

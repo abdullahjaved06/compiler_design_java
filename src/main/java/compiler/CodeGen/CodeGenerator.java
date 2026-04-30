@@ -21,12 +21,17 @@ import static org.objectweb.asm.Opcodes.*;
 import compiler.Parser.AST.IfNode;
 import compiler.Parser.AST.WhileNode;
 import compiler.Parser.AST.FunctionNode;
+import compiler.Parser.AST.ReturnNode;
 
 public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
     private final Map<String, String> localTypes = new HashMap<>();
+    private final Map<String, String> functionTypes = new HashMap<>();
+
     private int nextSlot = 1;
     private String currentClassName;
+    private String currentReturnType = "VOID";
+
     public void makeEmptyClass(String className, String outputFile) throws IOException {
         ClassWriter writer = startClass(className);
         writer.visitEnd();
@@ -55,10 +60,25 @@ public class CodeGenerator {
     public void generate(ASTNode root, String outputFile) throws IOException {
         String className = classNameFromFile(outputFile);
         this.currentClassName = className;
+
         ClassWriter writer = startClass(className);
 
         if (!(root instanceof BlockNode block)) {
             throw new RuntimeException("CodeGenerationError: root must be BlockNode.");
+        }
+
+        functionTypes.clear();
+
+        for (ASTNode node : block.getStatements()) {
+            if (node instanceof FunctionNode functionNode) {
+                String returnType = functionNode.getReturnType();
+
+                if (returnType == null) {
+                    returnType = "VOID";
+                }
+
+                functionTypes.put(functionNode.getName(), returnType);
+            }
         }
 
         for (ASTNode node : block.getStatements()) {
@@ -200,10 +220,16 @@ public class CodeGenerator {
         method.visitEnd();
     }
     private void addSimpleFunction(ClassWriter writer, FunctionNode function) {
+        String returnType = function.getReturnType();
+
+        if (returnType == null) {
+            returnType = "VOID";
+        }
+
         MethodVisitor method = writer.visitMethod(
                 ACC_PUBLIC | ACC_STATIC,
                 function.getName(),
-                "()V",
+                "()" + descriptorFor(returnType),
                 null,
                 null
         );
@@ -214,9 +240,17 @@ public class CodeGenerator {
         localTypes.clear();
         nextSlot = 0;
 
+        String oldReturnType = currentReturnType;
+        currentReturnType = returnType;
+
         generateBlock(function.getBody(), method);
 
-        method.visitInsn(RETURN);
+        if ("VOID".equals(returnType)) {
+            method.visitInsn(RETURN);
+        }
+
+        currentReturnType = oldReturnType;
+
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
@@ -244,10 +278,36 @@ public class CodeGenerator {
             generateWhile(whileNode, method);
             return;
         }
+        if (statement instanceof ReturnNode returnNode) {
+            generateReturn(returnNode, method);
+            return;
+        }
         throw new RuntimeException(
                 "CodeGenerationError: unsupported statement: "
                         + statement.getClass().getSimpleName()
         );
+    }
+    private void generateReturn(ReturnNode returnNode, MethodVisitor method) {
+        if ("VOID".equals(currentReturnType)) {
+            if (returnNode.getExpression() != null) {
+                throw new RuntimeException("CodeGenerationError: void function cannot return a value.");
+            }
+
+            method.visitInsn(RETURN);
+            return;
+        }
+
+        if (returnNode.getExpression() == null) {
+            throw new RuntimeException("CodeGenerationError: non-void function must return a value.");
+        }
+
+        String valueType = generateExpression(returnNode.getExpression(), method);
+
+        if (!currentReturnType.equals(valueType)) {
+            throw new RuntimeException("CodeGenerationError: wrong return type.");
+        }
+
+        method.visitInsn(returnOpcode(currentReturnType));
     }
     private void generateWhile(WhileNode whileNode, MethodVisitor method) {
         Label startLabel = new Label();
@@ -329,7 +389,33 @@ public class CodeGenerator {
 
         method.visitVarInsn(storeOpcode(oldType), localSlots.get(name));
     }
+    private String generateFunctionCallExpression(FunctionCallNode call, MethodVisitor method) {
+        String name = call.getFunctionName();
 
+        if (!call.getArguments().isEmpty()) {
+            throw new RuntimeException("CodeGenerationError: function arguments are not supported yet.");
+        }
+
+        if (!functionTypes.containsKey(name)) {
+            throw new RuntimeException("CodeGenerationError: unknown function: " + name);
+        }
+
+        String returnType = functionTypes.get(name);
+
+        if ("VOID".equals(returnType)) {
+            throw new RuntimeException("CodeGenerationError: void function cannot be used as expression.");
+        }
+
+        method.visitMethodInsn(
+                INVOKESTATIC,
+                currentClassName,
+                name,
+                "()" + descriptorFor(returnType),
+                false
+        );
+
+        return returnType;
+    }
     private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
         String name = call.getFunctionName();
 
@@ -390,7 +476,9 @@ public class CodeGenerator {
         if (expression instanceof BinaryExpressionNode binary) {
             return generateBinaryExpression(binary, method);
         }
-
+        if (expression instanceof FunctionCallNode call) {
+            return generateFunctionCallExpression(call, method);
+        }
         throw new RuntimeException(
                 "CodeGenerationError: unsupported expression: "
                         + expression.getClass().getSimpleName()
@@ -625,6 +713,8 @@ public class CodeGenerator {
 
             case "STRING":
                 return "Ljava/lang/String;";
+            case "VOID":
+                return "V";
 
             default:
                 throw new RuntimeException("CodeGenerationError: unsupported type: " + type);
@@ -646,7 +736,25 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
         }
     }
+    private int returnOpcode(String type) {
+        switch (type) {
+            case "INT":
+            case "BOOL":
+                return IRETURN;
 
+            case "FLOAT":
+                return FRETURN;
+
+            case "STRING":
+                return ARETURN;
+
+            case "VOID":
+                return RETURN;
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported return type: " + type);
+        }
+    }
     private int loadOpcode(String type) {
         switch (type) {
             case "INT":
