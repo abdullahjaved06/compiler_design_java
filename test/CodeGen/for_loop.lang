@@ -1,0 +1,5 @@
+def main() {
+    for (INT i; 0 -> 5; i + 1) {
+        println(i);
+    }
+}

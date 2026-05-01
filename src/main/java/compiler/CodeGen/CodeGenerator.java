@@ -11,6 +11,7 @@ import compiler.Parser.AST.IfNode;
 import compiler.Parser.AST.LiteralNode;
 import compiler.Parser.AST.ReturnNode;
 import compiler.Parser.AST.WhileNode;
+import compiler.Parser.AST.ForNode;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -230,6 +231,10 @@ public class CodeGenerator {
             generateWhile(whileNode, method);
             return;
         }
+        if (statement instanceof ForNode forNode) {
+            generateFor(forNode, method);
+            return;
+        }
 
         if (statement instanceof ReturnNode returnNode) {
             generateReturn(returnNode, method);
@@ -320,6 +325,60 @@ public class CodeGenerator {
         method.visitJumpInsn(IFEQ, endLabel);
 
         generateBlock(whileNode.getBody(), method);
+
+        method.visitJumpInsn(GOTO, startLabel);
+        method.visitLabel(endLabel);
+    }
+    private void generateFor(ForNode forNode, MethodVisitor method) {
+        if (!(forNode.getInit() instanceof AssignmentNode init)) {
+            throw new RuntimeException("CodeGenerationError: invalid for-loop initializer.");
+        }
+
+        String name = init.getIdentifier();
+        String type = init.getType();
+
+        if (!"INT".equals(type)) {
+            throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
+        }
+
+        int slot = nextSlot;
+        nextSlot++;
+
+        localSlots.put(name, slot);
+        localTypes.put(name, "INT");
+
+        String startType = generateExpression(forNode.getRangeStart(), method);
+
+        if (!"INT".equals(startType)) {
+            throw new RuntimeException("CodeGenerationError: for-loop start must be INT.");
+        }
+
+        method.visitVarInsn(ISTORE, slot);
+
+        Label startLabel = new Label();
+        Label endLabel = new Label();
+
+        method.visitLabel(startLabel);
+
+        method.visitVarInsn(ILOAD, slot);
+
+        String endType = generateExpression(forNode.getRangeEnd(), method);
+
+        if (!"INT".equals(endType)) {
+            throw new RuntimeException("CodeGenerationError: for-loop end must be INT.");
+        }
+
+        method.visitJumpInsn(IF_ICMPGE, endLabel);
+
+        generateBlock(forNode.getBody(), method);
+
+        String updateType = generateExpression(forNode.getUpdate(), method);
+
+        if (!"INT".equals(updateType)) {
+            throw new RuntimeException("CodeGenerationError: for-loop update must be INT.");
+        }
+
+        method.visitVarInsn(ISTORE, slot);
 
         method.visitJumpInsn(GOTO, startLabel);
         method.visitLabel(endLabel);

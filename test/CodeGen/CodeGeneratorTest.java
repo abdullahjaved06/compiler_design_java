@@ -180,4 +180,13 @@ public class CodeGeneratorTest {
 
         assertEquals("7\n10\nok\n4.0\n", output);
     }
+    @Test
+    public void compilesAndRunsForLoop() throws Exception {
+        String output = compileAndRun(
+                "test/CodeGen/for_loop.lang",
+                "for_loop"
+        );
+
+        assertEquals("0\n1\n2\n3\n4\n", output);
+    }
 }
