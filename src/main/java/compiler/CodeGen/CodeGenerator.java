@@ -1,29 +1,30 @@
 package compiler.CodeGen;
 
 import compiler.Parser.AST.ASTNode;
+import compiler.Parser.AST.AssignmentNode;
+import compiler.Parser.AST.BinaryExpressionNode;
 import compiler.Parser.AST.BlockNode;
 import compiler.Parser.AST.FunctionCallNode;
 import compiler.Parser.AST.FunctionNode;
-import compiler.Parser.AST.LiteralNode;
-import compiler.Parser.AST.AssignmentNode;
 import compiler.Parser.AST.IdentifierNode;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
+import compiler.Parser.AST.IfNode;
+import compiler.Parser.AST.LiteralNode;
+import compiler.Parser.AST.ReturnNode;
+import compiler.Parser.AST.WhileNode;
 
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import compiler.Parser.AST.BinaryExpressionNode;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.objectweb.asm.Opcodes.*;
-import compiler.Parser.AST.IfNode;
-import compiler.Parser.AST.WhileNode;
-import compiler.Parser.AST.FunctionNode;
-import compiler.Parser.AST.ReturnNode;
 
 public class CodeGenerator {
     private final Map<String, Integer> localSlots = new HashMap<>();
@@ -35,40 +36,15 @@ public class CodeGenerator {
     private String currentClassName;
     private String currentReturnType = "VOID";
 
-    public void makeEmptyClass(String className, String outputFile) throws IOException {
-        ClassWriter writer = startClass(className);
-        writer.visitEnd();
-        writeFile(outputFile, writer.toByteArray());
-    }
-
-    public void makeClassWithEmptyMain(String className, String outputFile) throws IOException {
-        ClassWriter writer = startClass(className);
-        addEmptyMain(writer);
-        writer.visitEnd();
-        writeFile(outputFile, writer.toByteArray());
-    }
-
-    public void makeClassWithHelloMain(String className, String outputFile) throws IOException {
-        ClassWriter writer = startClass(className);
-        addHelloMain(writer);
-        writer.visitEnd();
-        writeFile(outputFile, writer.toByteArray());
-    }
-
-    public void makeHelloClass(String outputFile) throws IOException {
-        String className = classNameFromFile(outputFile);
-        makeClassWithHelloMain(className, outputFile);
-    }
-
     public void generate(ASTNode root, String outputFile) throws IOException {
         String className = classNameFromFile(outputFile);
         this.currentClassName = className;
 
-        ClassWriter writer = startClass(className);
-
         if (!(root instanceof BlockNode block)) {
             throw new RuntimeException("CodeGenerationError: root must be BlockNode.");
         }
+
+        ClassWriter writer = startClass(className);
 
         functionTypes.clear();
         functionParams.clear();
@@ -91,7 +67,7 @@ public class CodeGenerator {
                 if ("main".equals(functionNode.getName())) {
                     addMainFromBlock(writer, functionNode.getBody());
                 } else {
-                    addSimpleFunction(writer, functionNode);
+                    addFunction(writer, functionNode);
                 }
             }
         }
@@ -99,6 +75,7 @@ public class CodeGenerator {
         writer.visitEnd();
         writeFile(outputFile, writer.toByteArray());
     }
+
     private List<String> getParameterTypes(FunctionNode function) {
         List<String> types = new ArrayList<>();
 
@@ -110,6 +87,7 @@ public class CodeGenerator {
 
         return types;
     }
+
     private ClassWriter startClass(String className) {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
@@ -125,20 +103,6 @@ public class CodeGenerator {
         addConstructor(writer);
 
         return writer;
-    }
-
-    private FunctionNode findMain(ASTNode root) {
-        if (root instanceof BlockNode block) {
-            for (ASTNode statement : block.getStatements()) {
-                if (statement instanceof FunctionNode functionNode) {
-                    if ("main".equals(functionNode.getName())) {
-                        return functionNode;
-                    }
-                }
-            }
-        }
-
-        throw new RuntimeException("CodeGenerationError: main function not found.");
     }
 
     private void addConstructor(ClassWriter writer) {
@@ -166,54 +130,6 @@ public class CodeGenerator {
         method.visitEnd();
     }
 
-    private void addEmptyMain(ClassWriter writer) {
-        MethodVisitor method = writer.visitMethod(
-                ACC_PUBLIC | ACC_STATIC,
-                "main",
-                "([Ljava/lang/String;)V",
-                null,
-                null
-        );
-
-        method.visitCode();
-        method.visitInsn(RETURN);
-        method.visitMaxs(0, 0);
-        method.visitEnd();
-    }
-
-    private void addHelloMain(ClassWriter writer) {
-        MethodVisitor method = writer.visitMethod(
-                ACC_PUBLIC | ACC_STATIC,
-                "main",
-                "([Ljava/lang/String;)V",
-                null,
-                null
-        );
-
-        method.visitCode();
-
-        method.visitFieldInsn(
-                GETSTATIC,
-                "java/lang/System",
-                "out",
-                "Ljava/io/PrintStream;"
-        );
-
-        method.visitLdcInsn("hello");
-
-        method.visitMethodInsn(
-                INVOKEVIRTUAL,
-                "java/io/PrintStream",
-                "println",
-                "(Ljava/lang/String;)V",
-                false
-        );
-
-        method.visitInsn(RETURN);
-        method.visitMaxs(0, 0);
-        method.visitEnd();
-    }
-
     private void addMainFromBlock(ClassWriter writer, BlockNode body) {
         MethodVisitor method = writer.visitMethod(
                 ACC_PUBLIC | ACC_STATIC,
@@ -224,17 +140,25 @@ public class CodeGenerator {
         );
 
         method.visitCode();
+
         localSlots.clear();
         localTypes.clear();
         nextSlot = 1;
 
+        String oldReturnType = currentReturnType;
+        currentReturnType = "VOID";
+
         generateBlock(body, method);
 
         method.visitInsn(RETURN);
+
+        currentReturnType = oldReturnType;
+
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
-    private void addSimpleFunction(ClassWriter writer, FunctionNode function) {
+
+    private void addFunction(ClassWriter writer, FunctionNode function) {
         String returnType = function.getReturnType();
 
         if (returnType == null) {
@@ -259,11 +183,8 @@ public class CodeGenerator {
 
         for (ASTNode arg : function.getArgs()) {
             if (arg instanceof AssignmentNode assignment) {
-                String name = assignment.getIdentifier();
-                String type = assignment.getType();
-
-                localSlots.put(name, nextSlot);
-                localTypes.put(name, type);
+                localSlots.put(assignment.getIdentifier(), nextSlot);
+                localTypes.put(assignment.getIdentifier(), assignment.getType());
                 nextSlot++;
             }
         }
@@ -282,11 +203,13 @@ public class CodeGenerator {
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
+
     private void generateBlock(BlockNode block, MethodVisitor method) {
         for (ASTNode statement : block.getStatements()) {
             generateStatement(statement, method);
         }
     }
+
     private void generateStatement(ASTNode statement, MethodVisitor method) {
         if (statement instanceof FunctionCallNode call) {
             generateFunctionCall(call, method);
@@ -302,84 +225,23 @@ public class CodeGenerator {
             generateIf(ifNode, method);
             return;
         }
-        if (statement instanceof WhileNode whileNode){
+
+        if (statement instanceof WhileNode whileNode) {
             generateWhile(whileNode, method);
             return;
         }
+
         if (statement instanceof ReturnNode returnNode) {
             generateReturn(returnNode, method);
             return;
         }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported statement: "
                         + statement.getClass().getSimpleName()
         );
     }
-    private void generateReturn(ReturnNode returnNode, MethodVisitor method) {
-        if ("VOID".equals(currentReturnType)) {
-            if (returnNode.getExpression() != null) {
-                throw new RuntimeException("CodeGenerationError: void function cannot return a value.");
-            }
 
-            method.visitInsn(RETURN);
-            return;
-        }
-
-        if (returnNode.getExpression() == null) {
-            throw new RuntimeException("CodeGenerationError: non-void function must return a value.");
-        }
-
-        String valueType = generateExpression(returnNode.getExpression(), method);
-
-        if (!currentReturnType.equals(valueType)) {
-            throw new RuntimeException("CodeGenerationError: wrong return type.");
-        }
-
-        method.visitInsn(returnOpcode(currentReturnType));
-    }
-    private void generateWhile(WhileNode whileNode, MethodVisitor method) {
-        Label startLabel = new Label();
-        Label endLabel = new Label();
-
-        method.visitLabel(startLabel);
-
-        String conditionType = generateExpression(whileNode.getCondition(), method);
-
-        if (!"BOOL".equals(conditionType)) {
-            throw new RuntimeException("CodeGenerationError: while condition must be BOOL.");
-        }
-
-        method.visitJumpInsn(IFEQ, endLabel);
-
-        generateBlock(whileNode.getBody(), method);
-
-        method.visitJumpInsn(GOTO, startLabel);
-        method.visitLabel(endLabel);
-    }
-    private void generateIf(IfNode ifNode, MethodVisitor method) {
-        String conditionType = generateExpression(ifNode.getCondition(), method);
-
-        if (!"BOOL".equals(conditionType)) {
-            throw new RuntimeException("CodeGenerationError: if condition must be BOOL.");
-        }
-
-        Label elseLabel = new Label();
-        Label endLabel = new Label();
-
-        method.visitJumpInsn(IFEQ, elseLabel);
-
-        generateBlock(ifNode.getThenBlock(), method);
-
-        method.visitJumpInsn(GOTO, endLabel);
-
-        method.visitLabel(elseLabel);
-
-        if (ifNode.getElseBlock() != null) {
-            generateBlock(ifNode.getElseBlock(), method);
-        }
-
-        method.visitLabel(endLabel);
-    }
     private void generateAssignment(AssignmentNode assignment, MethodVisitor method) {
         String name = assignment.getIdentifier();
         String type = assignment.getType();
@@ -417,33 +279,75 @@ public class CodeGenerator {
 
         method.visitVarInsn(storeOpcode(oldType), localSlots.get(name));
     }
-    private String generateFunctionCallExpression(FunctionCallNode call, MethodVisitor method) {
-        String name = call.getFunctionName();
 
-        if (!functionTypes.containsKey(name)) {
-            throw new RuntimeException("CodeGenerationError: unknown function: " + name);
+    private void generateIf(IfNode ifNode, MethodVisitor method) {
+        String conditionType = generateExpression(ifNode.getCondition(), method);
+
+        if (!"BOOL".equals(conditionType)) {
+            throw new RuntimeException("CodeGenerationError: if condition must be BOOL.");
         }
 
-        String returnType = functionTypes.get(name);
+        Label elseLabel = new Label();
+        Label endLabel = new Label();
 
-        if ("VOID".equals(returnType)) {
-            throw new RuntimeException("CodeGenerationError: void function cannot be used as expression.");
+        method.visitJumpInsn(IFEQ, elseLabel);
+
+        generateBlock(ifNode.getThenBlock(), method);
+
+        method.visitJumpInsn(GOTO, endLabel);
+
+        method.visitLabel(elseLabel);
+
+        if (ifNode.getElseBlock() != null) {
+            generateBlock(ifNode.getElseBlock(), method);
         }
 
-        List<String> paramTypes = functionParams.get(name);
-
-        generateCallArguments(call, paramTypes, method);
-
-        method.visitMethodInsn(
-                INVOKESTATIC,
-                currentClassName,
-                name,
-                methodDescriptor(paramTypes, returnType),
-                false
-        );
-
-        return returnType;
+        method.visitLabel(endLabel);
     }
+
+    private void generateWhile(WhileNode whileNode, MethodVisitor method) {
+        Label startLabel = new Label();
+        Label endLabel = new Label();
+
+        method.visitLabel(startLabel);
+
+        String conditionType = generateExpression(whileNode.getCondition(), method);
+
+        if (!"BOOL".equals(conditionType)) {
+            throw new RuntimeException("CodeGenerationError: while condition must be BOOL.");
+        }
+
+        method.visitJumpInsn(IFEQ, endLabel);
+
+        generateBlock(whileNode.getBody(), method);
+
+        method.visitJumpInsn(GOTO, startLabel);
+        method.visitLabel(endLabel);
+    }
+
+    private void generateReturn(ReturnNode returnNode, MethodVisitor method) {
+        if ("VOID".equals(currentReturnType)) {
+            if (returnNode.getExpression() != null) {
+                throw new RuntimeException("CodeGenerationError: void function cannot return a value.");
+            }
+
+            method.visitInsn(RETURN);
+            return;
+        }
+
+        if (returnNode.getExpression() == null) {
+            throw new RuntimeException("CodeGenerationError: non-void function must return a value.");
+        }
+
+        String valueType = generateExpression(returnNode.getExpression(), method);
+
+        if (!currentReturnType.equals(valueType)) {
+            throw new RuntimeException("CodeGenerationError: wrong return type.");
+        }
+
+        method.visitInsn(returnOpcode(currentReturnType));
+    }
+
     private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
         String name = call.getFunctionName();
 
@@ -473,6 +377,35 @@ public class CodeGenerator {
             method.visitInsn(POP);
         }
     }
+
+    private String generateFunctionCallExpression(FunctionCallNode call, MethodVisitor method) {
+        String name = call.getFunctionName();
+
+        if (!functionTypes.containsKey(name)) {
+            throw new RuntimeException("CodeGenerationError: unknown function: " + name);
+        }
+
+        String returnType = functionTypes.get(name);
+
+        if ("VOID".equals(returnType)) {
+            throw new RuntimeException("CodeGenerationError: void function cannot be used as expression.");
+        }
+
+        List<String> paramTypes = functionParams.get(name);
+
+        generateCallArguments(call, paramTypes, method);
+
+        method.visitMethodInsn(
+                INVOKESTATIC,
+                currentClassName,
+                name,
+                methodDescriptor(paramTypes, returnType),
+                false
+        );
+
+        return returnType;
+    }
+
     private void generateCallArguments(FunctionCallNode call, List<String> paramTypes, MethodVisitor method) {
         if (call.getArguments().size() != paramTypes.size()) {
             throw new RuntimeException("CodeGenerationError: wrong number of arguments for " + call.getFunctionName());
@@ -487,6 +420,7 @@ public class CodeGenerator {
             }
         }
     }
+
     private void generatePrintln(FunctionCallNode call, MethodVisitor method) {
         if (call.getArguments().size() != 1) {
             throw new RuntimeException("CodeGenerationError: println expects 1 argument.");
@@ -522,14 +456,17 @@ public class CodeGenerator {
         if (expression instanceof BinaryExpressionNode binary) {
             return generateBinaryExpression(binary, method);
         }
+
         if (expression instanceof FunctionCallNode call) {
             return generateFunctionCallExpression(call, method);
         }
+
         throw new RuntimeException(
                 "CodeGenerationError: unsupported expression: "
                         + expression.getClass().getSimpleName()
         );
     }
+
     private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
         String leftType = generateExpression(binary.getLeft(), method);
         String rightType = generateExpression(binary.getRight(), method);
@@ -537,9 +474,11 @@ public class CodeGenerator {
         if (leftType.equals("INT") && rightType.equals("INT")) {
             return generateIntBinary(binary.getOperator(), method);
         }
+
         if (leftType.equals("FLOAT") && rightType.equals("FLOAT")) {
             return generateFloatBinary(binary.getOperator(), method);
         }
+
         if (leftType.equals("BOOL") && rightType.equals("BOOL")) {
             return generateBoolBinary(binary.getOperator(), method);
         }
@@ -549,6 +488,7 @@ public class CodeGenerator {
                         + leftType + " and " + rightType
         );
     }
+
     private String generateIntBinary(String operator, MethodVisitor method) {
         switch (operator) {
             case "+":
@@ -594,6 +534,7 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported INT operator: " + operator);
         }
     }
+
     private String generateFloatBinary(String operator, MethodVisitor method) {
         switch (operator) {
             case "+":
@@ -616,6 +557,7 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported FLOAT operator: " + operator);
         }
     }
+
     private String generateBoolBinary(String operator, MethodVisitor method) {
         switch (operator) {
             case "&&":
@@ -654,81 +596,7 @@ public class CodeGenerator {
 
         return "BOOL";
     }
-    private String generateIntBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
-        switch (binary.getOperator()) {
-            case "+":
-                method.visitInsn(IADD);
-                break;
-            case "-":
-                method.visitInsn(ISUB);
-                break;
-            case "*":
-                method.visitInsn(IMUL);
-                break;
-            case "/":
-                method.visitInsn(IDIV);
-                break;
-            case "%":
-                method.visitInsn(IREM);
-                break;
-            case "==":
-                method.visitJumpInsn(IF_ICMPEQ, new Label());
-                break;
-            case "!=":
-                method.visitJumpInsn(IF_ICMPNE, new Label());
-                break;
-            case "<":
-                method.visitJumpInsn(IF_ICMPLT, new Label());
-                break;
-            case ">":
-                method.visitJumpInsn(IF_ICMPGT, new Label());
-                break;
-            case "<=":
-                method.visitJumpInsn(IF_ICMPLE, new Label());
-                break;
-            case ">=":
-                method.visitJumpInsn(IF_ICMPGE, new Label());
-                break;
-            default:
-                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
-        }
 
-        return "INT";
-    }
-    private String generateFloatBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
-        switch (binary.getOperator()) {
-            case "+":
-                method.visitInsn(FADD);
-                break;
-            case "-":
-                method.visitInsn(FSUB);
-                break;
-            case "*":
-                method.visitInsn(FMUL);
-                break;
-            case "/":
-                method.visitInsn(FDIV);
-                break;
-            default:
-                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
-        }
-
-        return "FLOAT";
-    }
-    private String generateBoolBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
-        switch (binary.getOperator()) {
-            case "&&":
-                method.visitInsn(IAND);
-                break;
-            case "||":
-                method.visitInsn(IOR);
-                break;
-            default:
-                throw new RuntimeException("Unsupported operator: " + binary.getOperator());
-        }
-
-        return "BOOL";
-    }
     private String generateIdentifier(IdentifierNode identifier, MethodVisitor method) {
         String name = identifier.getName();
 
@@ -768,6 +636,7 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported literal.");
         }
     }
+
     private String methodDescriptor(List<String> paramTypes, String returnType) {
         StringBuilder descriptor = new StringBuilder();
 
@@ -782,6 +651,7 @@ public class CodeGenerator {
 
         return descriptor.toString();
     }
+
     private String descriptorFor(String type) {
         switch (type) {
             case "INT":
@@ -795,6 +665,7 @@ public class CodeGenerator {
 
             case "STRING":
                 return "Ljava/lang/String;";
+
             case "VOID":
                 return "V";
 
@@ -802,6 +673,7 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported type: " + type);
         }
     }
+
     private int storeOpcode(String type) {
         switch (type) {
             case "INT":
@@ -818,6 +690,24 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
         }
     }
+
+    private int loadOpcode(String type) {
+        switch (type) {
+            case "INT":
+            case "BOOL":
+                return ILOAD;
+
+            case "FLOAT":
+                return FLOAD;
+
+            case "STRING":
+                return ALOAD;
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
+        }
+    }
+
     private int returnOpcode(String type) {
         switch (type) {
             case "INT":
@@ -835,22 +725,6 @@ public class CodeGenerator {
 
             default:
                 throw new RuntimeException("CodeGenerationError: unsupported return type: " + type);
-        }
-    }
-    private int loadOpcode(String type) {
-        switch (type) {
-            case "INT":
-            case "BOOL":
-                return ILOAD;
-
-            case "FLOAT":
-                return FLOAD;
-
-            case "STRING":
-                return ALOAD;
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
         }
     }
 

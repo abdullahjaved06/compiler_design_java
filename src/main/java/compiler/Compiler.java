@@ -12,6 +12,8 @@ import java.io.StringReader;
 import java.io.Reader;
 import java.io.FileReader;
 
+import java.nio.file.Path;
+
 public class Compiler {
     public static void main(String[] args) {
         if (args.length == 3 && args[1].equals("-o")) {
@@ -23,11 +25,13 @@ public class Compiler {
             }
             return;
         }
+
         if (args.length == 1 && !args[0].startsWith("-")) {
             try {
-                runSemantic(args[0]);
+                String outputFile = defaultOutputFile(args[0]);
+                runCodeGeneration(args[0], outputFile);
             } catch (Exception e) {
-                System.out.println(e.getMessage());
+                System.err.println(e.getMessage());
                 System.exit(1);
             }
             return;
@@ -115,6 +119,15 @@ public class Compiler {
 
             System.out.println("Generated class file: " + outputFile);
         }
+    }
+    private static String defaultOutputFile(String sourceFile) {
+        String fileName = Path.of(sourceFile).getFileName().toString();
+
+        if (fileName.endsWith(".lang")) {
+            fileName = fileName.substring(0, fileName.length() - 5);
+        }
+
+        return fileName + ".class";
     }
 
     private static void runTest() {

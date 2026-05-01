@@ -1,0 +1,32 @@
+def INT add(INT a, INT b) {
+    return a + b;
+}
+
+def INT sumTo(INT limit) {
+    INT i = 0;
+    INT total = 0;
+
+    while (i < limit) {
+        total = total + i;
+        i = i + 1;
+    }
+
+    return total;
+}
+
+def main() {
+    INT x = add(3, 4);
+    println(x);
+
+    INT total = sumTo(5);
+    println(total);
+
+    if (total == 10) {
+        println("ok");
+    } else {
+        println("wrong");
+    }
+
+    FLOAT f = 2.5 + 1.5;
+    println(f);
+}
