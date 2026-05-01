@@ -537,7 +537,9 @@ public class CodeGenerator {
         if (leftType.equals("INT") && rightType.equals("INT")) {
             return generateIntBinary(binary.getOperator(), method);
         }
-
+        if (leftType.equals("FLOAT") && rightType.equals("FLOAT")) {
+            return generateFloatBinary(binary.getOperator(), method);
+        }
         if (leftType.equals("BOOL") && rightType.equals("BOOL")) {
             return generateBoolBinary(binary.getOperator(), method);
         }
@@ -592,7 +594,28 @@ public class CodeGenerator {
                 throw new RuntimeException("CodeGenerationError: unsupported INT operator: " + operator);
         }
     }
+    private String generateFloatBinary(String operator, MethodVisitor method) {
+        switch (operator) {
+            case "+":
+                method.visitInsn(FADD);
+                return "FLOAT";
 
+            case "-":
+                method.visitInsn(FSUB);
+                return "FLOAT";
+
+            case "*":
+                method.visitInsn(FMUL);
+                return "FLOAT";
+
+            case "/":
+                method.visitInsn(FDIV);
+                return "FLOAT";
+
+            default:
+                throw new RuntimeException("CodeGenerationError: unsupported FLOAT operator: " + operator);
+        }
+    }
     private String generateBoolBinary(String operator, MethodVisitor method) {
         switch (operator) {
             case "&&":

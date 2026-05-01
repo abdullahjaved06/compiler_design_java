@@ -1,0 +1,11 @@
+def main() {
+    FLOAT a = 2.5 + 1.5;
+    FLOAT b = 5.5 - 2.0;
+    FLOAT c = 2.0 * 3.0;
+    FLOAT d = 7.5 / 2.5;
+
+    println(a);
+    println(b);
+    println(c);
+    println(d);
+}
