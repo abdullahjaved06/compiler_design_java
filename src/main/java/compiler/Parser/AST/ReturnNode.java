@@ -12,6 +12,11 @@ public class ReturnNode implements ASTNode {
     }
     @Override
     public String print(String indent) {
+        if (expression == null) {
+            return indent + "ReturnStatement";
+        }
+
         return indent + "ReturnStatement\n" + expression.print(indent + "  ");
     }
+
 }

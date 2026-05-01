@@ -138,8 +138,15 @@ public class Parser {
 
     private ASTNode parseReturn() {
         match(TokenType.RETURN);
+
+        if (currentSymbol.getType() == TokenType.SEMICOLON) {
+            match(TokenType.SEMICOLON);
+            return new ReturnNode(null);
+        }
+
         ASTNode expr = parseExpression();
         match(TokenType.SEMICOLON);
+
         return new ReturnNode(expr);
     }
 

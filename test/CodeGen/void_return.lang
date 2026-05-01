@@ -1,0 +1,9 @@
+def helper() {
+    println("before return");
+    return;
+    println("after return");
+}
+
+def main() {
+    helper();
+}

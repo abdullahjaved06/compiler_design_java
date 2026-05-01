@@ -300,4 +300,13 @@ public class CodeGeneratorTest {
 
         assertEquals("4.0\n3.5\n6.0\n3.0\n", output);
     }
+    @Test
+    public void compilesAndRunsVoidReturn() throws Exception {
+        String output = compileAndRun(
+                "test/CodeGen/void_return.lang",
+                "void_return"
+        );
+
+        assertEquals("before return\n", output);
+    }
 }
