@@ -13,6 +13,9 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import static org.junit.Assert.assertEquals;
 
 public class CodeGeneratorTest {
@@ -188,5 +191,26 @@ public class CodeGeneratorTest {
         );
 
         assertEquals("0\n1\n2\n3\n4\n", output);
+    }
+    @Test
+    public void failsWhenMainIsMissing() throws Exception {
+        Path sourceFile = Path.of("test/CodeGen/missing_main.lang");
+        Path outputFile = Path.of("build/test-codegen/missing_main.class");
+
+        try (Reader reader = new FileReader(sourceFile.toFile())) {
+            Lexer lexer = new Lexer(reader);
+            Parser parser = new Parser(lexer);
+            ASTNode root = parser.getAST();
+
+            SemanticAnalyzer analyzer = new SemanticAnalyzer();
+            analyzer.analyze(root);
+
+            CodeGenerator generator = new CodeGenerator();
+            generator.generate(root, outputFile.toString());
+
+            fail("Expected code generation to fail because main is missing.");
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("main function not found"));
+        }
     }
 }

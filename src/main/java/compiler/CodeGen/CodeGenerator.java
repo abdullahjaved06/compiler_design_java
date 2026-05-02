@@ -50,6 +50,8 @@ public class CodeGenerator {
         functionTypes.clear();
         functionParams.clear();
 
+        boolean hasMain = false;
+
         for (ASTNode node : block.getStatements()) {
             if (node instanceof FunctionNode functionNode) {
                 String returnType = functionNode.getReturnType();
@@ -58,9 +60,17 @@ public class CodeGenerator {
                     returnType = "VOID";
                 }
 
+                if ("main".equals(functionNode.getName())) {
+                    hasMain = true;
+                }
+
                 functionTypes.put(functionNode.getName(), returnType);
                 functionParams.put(functionNode.getName(), getParameterTypes(functionNode));
             }
+        }
+
+        if (!hasMain) {
+            throw new RuntimeException("CodeGenerationError: main function not found.");
         }
 
         for (ASTNode node : block.getStatements()) {
