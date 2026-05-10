@@ -332,11 +332,33 @@ public class Parser {
             ASTNode index = parseExpression();
             match(TokenType.RBRACKET);
 
+            if (currentSymbol.getType() == TokenType.DOT) {
+                advance();
+                String fieldName = currentSymbol.getValue();
+                match(TokenType.IDENTIFIER);
+                match(TokenType.ASSIGN);
+                ASTNode value = parseExpression();
+                match(TokenType.SEMICOLON);
+                ASTNode target = new IndexAccessNode(new IdentifierNode(id), index);
+                return new FieldStoreNode(target, fieldName, value);
+            }
+
             match(TokenType.ASSIGN);
             ASTNode value = parseExpression();
             match(TokenType.SEMICOLON);
             return new ArrayStoreNode(new IdentifierNode(id), index, value);
         }
+
+        if (currentSymbol.getType() == TokenType.DOT) {
+            advance();
+            String fieldName = currentSymbol.getValue();
+            match(TokenType.IDENTIFIER);
+            match(TokenType.ASSIGN);
+            ASTNode value = parseExpression();
+            match(TokenType.SEMICOLON);
+            return new FieldStoreNode(new IdentifierNode(id), fieldName, value);
+        }
+
         if (currentSymbol.getType() == TokenType.SEMICOLON) {
             match(TokenType.SEMICOLON);
             return new AssignmentNode(null, id);

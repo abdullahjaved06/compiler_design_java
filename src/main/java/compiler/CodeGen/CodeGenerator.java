@@ -316,6 +316,7 @@ public class CodeGenerator {
             case FunctionCallNode call -> generateFunctionCallStatement(call, method);
             case AssignmentNode assignment -> generateAssignment(assignment, method);
             case ArrayStoreNode arrayStore -> generateArrayStore(arrayStore, method);
+            case FieldStoreNode fieldStore -> generateFieldStore(fieldStore, method);
             case IfNode ifNode -> generateIf(ifNode, method);
             case WhileNode whileNode -> generateWhile(whileNode, method);
             case ForNode forNode -> generateFor(forNode, method);
@@ -1057,6 +1058,42 @@ public class CodeGenerator {
 
         method.visitInsn(storeArrOpcode);
     }
+
+    private void generateFieldStore(FieldStoreNode store, MethodVisitor method) {
+        String collType = generateExpression(store.getTarget(), method);
+        String baseType = collType.replace("[]", "");
+
+        if (!collectionFields.containsKey(baseType)) {
+            throw new RuntimeException("CodeGenerationError: field-write on unknown collection type: " + collType);
+        }
+
+        String fieldType = null;
+
+        for (String[] field : collectionFields.get(baseType)) {
+            if (field[0].equals(store.getField())) {
+                fieldType = field[1];
+                break;
+            }
+        }
+
+        if (fieldType == null) {
+            throw new RuntimeException("CodeGenerationError: collection '" + baseType
+                    + "' has no field '" + store.getField() + "'.");
+        }
+
+        String valueType = generateExpression(store.getValue(), method);
+
+        if ("FLOAT".equals(fieldType) && "INT".equals(valueType)) {
+            method.visitInsn(I2F);
+            valueType = "FLOAT";
+        }
+
+        if (!fieldType.equals(valueType)) {
+            throw new RuntimeException("CodeGenerationError: cannot assign '" + valueType
+                    + "' to field '" + store.getField() + "' of type '" + fieldType + "'.");
+        }
+
+        method.visitFieldInsn(PUTFIELD, baseType, store.getField(), descriptorFor(fieldType));
         }
 
     private String generateIndexAccess(IndexAccessNode idx, MethodVisitor method) {
