@@ -1,17 +1,6 @@
 package compiler.CodeGen;
 
-import compiler.Parser.AST.ASTNode;
-import compiler.Parser.AST.AssignmentNode;
-import compiler.Parser.AST.BinaryExpressionNode;
-import compiler.Parser.AST.BlockNode;
-import compiler.Parser.AST.FunctionCallNode;
-import compiler.Parser.AST.FunctionNode;
-import compiler.Parser.AST.IdentifierNode;
-import compiler.Parser.AST.IfNode;
-import compiler.Parser.AST.LiteralNode;
-import compiler.Parser.AST.ReturnNode;
-import compiler.Parser.AST.WhileNode;
-import compiler.Parser.AST.ForNode;
+import compiler.Parser.AST.*;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -20,10 +9,7 @@ import org.objectweb.asm.MethodVisitor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -32,67 +18,84 @@ public class CodeGenerator {
     private final Map<String, String> localTypes = new HashMap<>();
     private final Map<String, String> functionTypes = new HashMap<>();
     private final Map<String, List<String>> functionParams = new HashMap<>();
+    private final Map<String, List<String[]>> collectionFields = new LinkedHashMap<>();
+    private final Map<String, String> globalFieldDescriptors = new LinkedHashMap<>();
+    private final Map<String, String> globalFieldTypes = new LinkedHashMap<>();
 
-    private int nextSlot = 1;
+
+    private int nextSlot = 0;
     private String currentClassName;
     private String currentReturnType = "VOID";
 
     public void generate(ASTNode root, String outputFile) throws IOException {
-        String className = classNameFromFile(outputFile);
-        this.currentClassName = className;
-
         if (!(root instanceof BlockNode block)) {
             throw new RuntimeException("CodeGenerationError: root must be BlockNode.");
         }
 
-        ClassWriter writer = startClass(className);
+        String className = classNameFromFile(outputFile);
+        this.currentClassName = className;
+        String outputDir = outputDirectoryFromFile(outputFile);
 
         functionTypes.clear();
         functionParams.clear();
 
-        boolean hasMain = false;
-
         for (ASTNode node : block.getStatements()) {
-            if (node instanceof FunctionNode functionNode) {
-                String returnType = functionNode.getReturnType();
-
-                if (returnType == null) {
-                    returnType = "VOID";
-                }
-
-                if ("main".equals(functionNode.getName())) {
-                    hasMain = true;
-                }
-
-                functionTypes.put(functionNode.getName(), returnType);
-                functionParams.put(functionNode.getName(), getParameterTypes(functionNode));
+            if (node instanceof CollectionNode coll) {
+                registerCollection(coll);
+            } else if (node instanceof FunctionNode fn) {
+                registerFunction(fn);
+            } else if (node instanceof FinalNode fin && fin.getAssignment() instanceof AssignmentNode a) {
+                registerGlobal(a);
+            } else if (node instanceof AssignmentNode a) {
+                registerGlobal(a);
             }
         }
 
+        boolean hasMain = functionTypes.containsKey("main");
         if (!hasMain) {
             throw new RuntimeException("CodeGenerationError: main function not found.");
         }
 
+        for (Map.Entry<String, List<String[]>> entry : collectionFields.entrySet()) {
+            byte[] collBytes = generateCollectionClass(entry.getKey(), entry.getValue());
+            String collPath  = outputDir + entry.getKey() + ".class";
+            writeFile(collPath, collBytes);
+        }
+
+        ClassWriter writer = startClass(className);
+
+        emitStaticFields(writer);
+
+        emitStaticInitializer(writer, block);
+
         for (ASTNode node : block.getStatements()) {
-            if (node instanceof FunctionNode functionNode) {
-                if ("main".equals(functionNode.getName())) {
-                    addMainFromBlock(writer, functionNode.getBody());
-                } else {
-                    addFunction(writer, functionNode);
-                }
+            if (node instanceof FunctionNode fn && !"main".equals(fn.getName())) {
+                addFunction(writer, fn);
             }
+        }
+
+        for (ASTNode node : block.getStatements()) {
+            if (node instanceof FunctionNode fn && "main".equals(fn.getName())) {
+                addMainFromBlock(writer, fn.getBody());
+                }
         }
 
         writer.visitEnd();
         writeFile(outputFile, writer.toByteArray());
     }
+    private void registerFunction(FunctionNode fn) {
+        String returnType = fn.getReturnType() == null ? "VOID" : fn.getReturnType();
+        functionTypes.put(fn.getName(), returnType);
 
-    private List<String> getParameterTypes(FunctionNode function) {
-        List<String> types = new ArrayList<>();
+        List<String> params = new ArrayList<>();
+        for (ASTNode arg : fn.getArgs()) {
+            if (arg instanceof AssignmentNode a) {
+                params.add(a.getType());
+            }
+        }
 
-        for (ASTNode arg : function.getArgs()) {
-            if (arg instanceof AssignmentNode assignment) {
-                types.add(assignment.getType());
+        functionParams.put(fn.getName(), params);
+    }
             }
         }
 
@@ -156,6 +159,11 @@ public class CodeGenerator {
         localTypes.clear();
         nextSlot = 1;
 
+        for (Map.Entry<String, String> e : globalFieldTypes.entrySet()) {
+            localSlots.put(e.getKey(), -1);
+            localTypes.put(e.getKey(), e.getValue());
+        }
+
         String oldReturnType = currentReturnType;
         currentReturnType = "VOID";
 
@@ -170,22 +178,14 @@ public class CodeGenerator {
     }
 
     private void addFunction(ClassWriter writer, FunctionNode function) {
-        String returnType = function.getReturnType();
-
-        if (returnType == null) {
-            returnType = "VOID";
-        }
-
-        List<String> paramTypes = getParameterTypes(function);
-
+        String returnType = function.getReturnType() == null ? "VOID" : function.getReturnType();
+        List<String> paramTypes = functionParams.get(function.getName());
         MethodVisitor method = writer.visitMethod(
                 ACC_PUBLIC | ACC_STATIC,
                 function.getName(),
                 methodDescriptor(paramTypes, returnType),
                 null,
-                null
-        );
-
+                null);
         method.visitCode();
 
         localSlots.clear();
@@ -196,13 +196,19 @@ public class CodeGenerator {
             if (arg instanceof AssignmentNode assignment) {
                 localSlots.put(assignment.getIdentifier(), nextSlot);
                 localTypes.put(assignment.getIdentifier(), assignment.getType());
-                nextSlot++;
+                nextSlot += slotSize(assignment.getType());
+            }
+        }
+
+        for (Map.Entry<String, String> e : globalFieldTypes.entrySet()) {
+            if (!localSlots.containsKey(e.getKey())) {
+                localSlots.put(e.getKey(), -1);
+                localTypes.put(e.getKey(), e.getValue());
             }
         }
 
         String oldReturnType = currentReturnType;
         currentReturnType = returnType;
-
         generateBlock(function.getBody(), method);
 
         if ("VOID".equals(returnType)) {
@@ -210,7 +216,6 @@ public class CodeGenerator {
         }
 
         currentReturnType = oldReturnType;
-
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
@@ -222,18 +227,18 @@ public class CodeGenerator {
     }
 
     private void generateStatement(ASTNode statement, MethodVisitor method) {
-        if (statement instanceof FunctionCallNode call) {
-            generateFunctionCall(call, method);
-            return;
+        switch (statement) {
+            case FunctionCallNode call -> generateFunctionCallStatement(call, method);
+            case AssignmentNode assignment -> generateAssignment(assignment, method);
+            case IfNode ifNode -> generateIf(ifNode, method);
+            case WhileNode whileNode -> generateWhile(whileNode, method);
+            case ForNode forNode -> generateFor(forNode, method);
+            case ReturnNode returnNode -> generateReturn(returnNode, method);
+            default -> throw new RuntimeException(
+                    "CodeGenerationError: unsupported statement: "
+                            + statement.getClass().getSimpleName());
         }
-
-        if (statement instanceof AssignmentNode assignment) {
-            generateAssignment(assignment, method);
-            return;
-        }
-
-        if (statement instanceof IfNode ifNode) {
-            generateIf(ifNode, method);
+    }
             return;
         }
 
@@ -417,30 +422,17 @@ public class CodeGenerator {
         method.visitInsn(returnOpcode(currentReturnType));
     }
 
-    private void generateFunctionCall(FunctionCallNode call, MethodVisitor method) {
+    private void generateFunctionCallStatement(FunctionCallNode call, MethodVisitor method) {
         String name = call.getFunctionName();
 
-        if ("println".equals(name)) {
-            generatePrintln(call, method);
-            return;
+        switch (name) {
+            case "println"     -> { generatePrintln(call, method); return; }
+            case "print", "write" -> { generatePrint(call, method, false); return; }
+            case "print_INT"   -> { generatePrintTyped(call, "INT",   method); return; }
+            case "print_FLOAT" -> { generatePrintTyped(call, "FLOAT", method); return; }
         }
 
-        if (!functionTypes.containsKey(name)) {
-            throw new RuntimeException("CodeGenerationError: unknown function: " + name);
-        }
-
-        String returnType = functionTypes.get(name);
-        List<String> paramTypes = functionParams.get(name);
-
-        generateCallArguments(call, paramTypes, method);
-
-        method.visitMethodInsn(
-                INVOKESTATIC,
-                currentClassName,
-                name,
-                methodDescriptor(paramTypes, returnType),
-                false
-        );
+        String returnType = generateFunctionCallExpression(call, method);
 
         if (!"VOID".equals(returnType)) {
             method.visitInsn(POP);
@@ -450,16 +442,73 @@ public class CodeGenerator {
     private String generateFunctionCallExpression(FunctionCallNode call, MethodVisitor method) {
         String name = call.getFunctionName();
 
+        switch (name) {
+            case "read_INT" -> {
+                emitReadScanner("nextInt", "I", method);
+                return "INT";
+            }
+            case "read_FLOAT" -> {
+                emitReadScanner("nextFloat", "F", method);
+                return "FLOAT";
+            }
+            case "read_STRING" -> {
+                emitReadScanner("next", "Ljava/lang/String;", method);
+                return "STRING";
+            }
+            case "floor" -> {
+                generateExpression(call.getArguments().getFirst(), method);
+                method.visitInsn(F2D);
+                method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "floor", "(D)D", false);
+                method.visitInsn(D2I);
+                return "INT";
+            }
+            case "ceil" -> {
+                generateExpression(call.getArguments().getFirst(), method);
+                method.visitInsn(F2D);
+                method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "ceil", "(D)D", false);
+                method.visitInsn(D2I);
+                return "INT";
+            }
+            case "str" -> {
+                generateExpression(call.getArguments().getFirst(), method);
+                method.visitMethodInsn(INVOKESTATIC, "java/lang/String", "valueOf",
+                        "(I)Ljava/lang/String;", false);
+                return "STRING";
+            }
+            case "length" -> {
+                ASTNode arg = call.getArguments().getFirst();
+                String argType = generateExpression(arg, method);
+                if ("STRING".equals(argType)) {
+                    method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "length", "()I", false);
+                } else {
+                    // Array type
+                    method.visitInsn(ARRAYLENGTH);
+                }
+                return "INT";
+            }
+            case "println" -> {
+                generatePrintln(call, method);
+                return "VOID";
+            }
+            case "print", "write" -> {
+                generatePrint(call, method, false);
+                return "VOID";
+            }
+            case "print_INT" -> {
+                generatePrintTyped(call, "INT", method);
+                return "VOID";
+            }
+            case "print_FLOAT" -> {
+                generatePrintTyped(call, "FLOAT", method);
+                return "VOID";
+            }
+        }
+
         if (!functionTypes.containsKey(name)) {
             throw new RuntimeException("CodeGenerationError: unknown function: " + name);
         }
 
         String returnType = functionTypes.get(name);
-
-        if ("VOID".equals(returnType)) {
-            throw new RuntimeException("CodeGenerationError: void function cannot be used as expression.");
-        }
-
         List<String> paramTypes = functionParams.get(name);
 
         generateCallArguments(call, paramTypes, method);
@@ -469,8 +518,7 @@ public class CodeGenerator {
                 currentClassName,
                 name,
                 methodDescriptor(paramTypes, returnType),
-                false
-        );
+                false);
 
         return returnType;
     }
@@ -484,8 +532,11 @@ public class CodeGenerator {
             String actualType = generateExpression(call.getArguments().get(i), method);
             String expectedType = paramTypes.get(i);
 
-            if (!expectedType.equals(actualType)) {
-                throw new RuntimeException("CodeGenerationError: wrong argument type for " + call.getFunctionName());
+            if ("FLOAT".equals(expectedType) && "INT".equals(actualType)) {
+                method.visitInsn(I2F);
+            } else if (!expectedType.equals(actualType)) {
+                throw new RuntimeException("CodeGenerationError: wrong argument type for "
+                        + call.getFunctionName() + ": expected " + expectedType + " got " + actualType);
             }
         }
     }
