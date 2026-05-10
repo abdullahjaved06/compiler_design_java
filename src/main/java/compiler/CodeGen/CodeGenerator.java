@@ -83,6 +83,18 @@ public class CodeGenerator {
         writer.visitEnd();
         writeFile(outputFile, writer.toByteArray());
     }
+
+    private void registerCollection(CollectionNode coll) {
+        List<String[]> fields = new ArrayList<>();
+        for (ASTNode member : coll.getBody().getStatements()) {
+            if (member instanceof AssignmentNode a) {
+                fields.add(new String[]{a.getIdentifier(), a.getType()});
+            }
+        }
+
+        collectionFields.put(coll.getName(), fields);
+    }
+
     private void registerFunction(FunctionNode fn) {
         String returnType = fn.getReturnType() == null ? "VOID" : fn.getReturnType();
         functionTypes.put(fn.getName(), returnType);
@@ -96,10 +108,48 @@ public class CodeGenerator {
 
         functionParams.put(fn.getName(), params);
     }
-            }
+
+    private void registerGlobal(AssignmentNode a) {
+        String type = a.getType();
+        if (type == null) return;
+        globalFieldTypes.put(a.getIdentifier(), type);
+        globalFieldDescriptors.put(a.getIdentifier(), descriptorFor(type));
+    }
+
+    private byte[] generateCollectionClass(String name, List<String[]> fields) {
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        cw.visit(V1_8, ACC_PUBLIC, name, null, "java/lang/Object", null);
+
+        for (String[] field : fields) {
+            cw.visitField(ACC_PUBLIC, field[0], descriptorFor(field[1]), null, null).visitEnd();
         }
 
-        return types;
+        StringBuilder ctorDesc = new StringBuilder("(");
+
+        for (String[] field : fields) ctorDesc.append(descriptorFor(field[1]));
+
+        ctorDesc.append(")V");
+
+        MethodVisitor init = cw.visitMethod(ACC_PUBLIC, "<init>", ctorDesc.toString(), null, null);
+        init.visitCode();
+        init.visitVarInsn(ALOAD, 0);
+        init.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+
+        int slot = 1;
+
+        for (String[] field : fields) {
+            init.visitVarInsn(ALOAD, 0);
+            init.visitVarInsn(loadOpcode(field[1]), slot);
+            init.visitFieldInsn(PUTFIELD, name, field[0], descriptorFor(field[1]));
+            slot += slotSize(field[1]);
+        }
+
+        init.visitInsn(RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+
+        cw.visitEnd();
+        return cw.toByteArray();
     }
 
     private ClassWriter startClass(String className) {
@@ -110,28 +160,78 @@ public class CodeGenerator {
     }
 
     private void addConstructor(ClassWriter writer) {
-        MethodVisitor method = writer.visitMethod(
-                ACC_PUBLIC,
-                "<init>",
-                "()V",
-                null,
-                null
-        );
+        MethodVisitor m = writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+        m.visitCode();
+        m.visitVarInsn(ALOAD, 0);
+        m.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        m.visitInsn(RETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+    }
 
-        method.visitCode();
+    private void emitStaticFields(ClassWriter writer) {
+        for (Map.Entry<String, String> entry : globalFieldDescriptors.entrySet()) {
+            writer.visitField(ACC_PUBLIC | ACC_STATIC, entry.getKey(), entry.getValue(), null, null)
+                    .visitEnd();
+        }
+    }
 
-        method.visitVarInsn(ALOAD, 0);
-        method.visitMethodInsn(
-                INVOKESPECIAL,
-                "java/lang/Object",
-                "<init>",
-                "()V",
-                false
-        );
+    private void emitStaticInitializer(ClassWriter writer, BlockNode block) {
+        boolean anyInit = false;
 
-        method.visitInsn(RETURN);
-        method.visitMaxs(0, 0);
-        method.visitEnd();
+        for (ASTNode node : block.getStatements()) {
+            if (node instanceof FinalNode fin && fin.getAssignment() instanceof AssignmentNode a
+                    && a.getExpression() != null) {
+                anyInit = true; break;
+            }
+
+            if (node instanceof AssignmentNode a && a.getType() != null && a.getExpression() != null) {
+                anyInit = true; break;
+            }
+        }
+
+        if (!anyInit && globalFieldDescriptors.isEmpty()) return;
+
+        MethodVisitor clinit = writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+        clinit.visitCode();
+
+        localSlots.clear();
+        localTypes.clear();
+        nextSlot = 0;
+
+        for (Map.Entry<String, String> e : globalFieldTypes.entrySet()) {
+            localSlots.put(e.getKey(), -1);
+            localTypes.put(e.getKey(), e.getValue());
+        }
+
+        for (ASTNode node : block.getStatements()) {
+            AssignmentNode a = null;
+
+            if (node instanceof FinalNode fin && fin.getAssignment() instanceof AssignmentNode fa) {
+                a = fa;
+            } else if (node instanceof AssignmentNode plain && plain.getType() != null) {
+                a = plain;
+            }
+
+            if (a == null) continue;
+
+            if (a.getExpression() == null) {
+                continue;
+            }
+
+            String valueType = generateExpression(a.getExpression(), clinit);
+
+            if ("FLOAT".equals(a.getType()) && "INT".equals(valueType)) {
+                clinit.visitInsn(I2F);
+            }
+
+            clinit.visitFieldInsn(PUTSTATIC, currentClassName, a.getIdentifier(),
+                    descriptorFor(a.getType()));
+        }
+
+        clinit.visitInsn(RETURN);
+        clinit.visitMaxs(0, 0);
+        clinit.visitEnd();
     }
 
     private void addMainFromBlock(ClassWriter writer, BlockNode body) {
@@ -635,6 +735,8 @@ public class CodeGenerator {
             case BinaryExpressionNode binary -> generateBinaryExpression(binary, method);
             case UnaryNode unary -> generateUnary(unary, method);
             case FunctionCallNode call -> generateFunctionCallExpression(call, method);
+            case ConstructorCallNode ctor -> generateConstructorCall(ctor, method);
+            case MemberAccessNode member -> generateMemberAccess(member, method);
             case null, default -> {
                 assert expression != null;
                 throw new RuntimeException("CodeGenerationError: unsupported expression: "
@@ -875,13 +977,38 @@ public class CodeGenerator {
         };
     }
 
-    private String methodDescriptor(List<String> paramTypes, String returnType) {
-        StringBuilder descriptor = new StringBuilder();
+    private String generateConstructorCall(ConstructorCallNode ctor, MethodVisitor method) {
+        String collName = ctor.getCollectionName();
 
-        descriptor.append("(");
+        if (!collectionFields.containsKey(collName)) {
+            throw new RuntimeException(
+                    "CodeGenerationError: unknown collection: " + collName);
+        }
 
-        for (String paramType : paramTypes) {
-            descriptor.append(descriptorFor(paramType));
+        List<String[]> fields = collectionFields.get(collName);
+
+        method.visitTypeInsn(NEW, collName);
+        method.visitInsn(DUP);
+
+        for (int i = 0; i < ctor.getArguments().size(); i++) {
+            String actualType   = generateExpression(ctor.getArguments().get(i), method);
+            String expectedType = fields.get(i)[1];
+
+            if ("FLOAT".equals(expectedType) && "INT".equals(actualType)) {
+                method.visitInsn(I2F);
+            }
+        }
+
+        StringBuilder ctorDesc = new StringBuilder("(");
+
+        for (String[] field : fields) ctorDesc.append(descriptorFor(field[1]));
+
+        ctorDesc.append(")V");
+
+        method.visitMethodInsn(INVOKESPECIAL, collName, "<init>", ctorDesc.toString(), false);
+        return collName;
+    }
+
         }
 
         descriptor.append(")");
@@ -912,21 +1039,46 @@ public class CodeGenerator {
         }
     }
 
-    private int storeOpcode(String type) {
-        switch (type) {
-            case "INT":
-            case "BOOL":
-                return ISTORE;
+    private String generateMemberAccess(MemberAccessNode member, MethodVisitor method) {
+        String collType  = generateExpression(member.getCollection(), method);
+        String fieldName = member.getMember();
+        String baseType  = collType.replace("[]", "");
 
-            case "FLOAT":
-                return FSTORE;
-
-            case "STRING":
-                return ASTORE;
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
+        if (!collectionFields.containsKey(baseType)) {
+            throw new RuntimeException(
+                    "CodeGenerationError: member access on unknown collection type: " + collType);
         }
+
+        String fieldType = null;
+
+        for (String[] field : collectionFields.get(baseType)) {
+            if (field[0].equals(fieldName)) {
+                fieldType = field[1];
+                break;
+            }
+        }
+
+        if (fieldType == null) {
+            throw new RuntimeException("CodeGenerationError: collection '" + baseType
+                    + "' has no field '" + fieldName + "'");
+        }
+
+        method.visitFieldInsn(GETFIELD, baseType, fieldName, descriptorFor(fieldType));
+        return fieldType;
+    }
+
+    private String methodDescriptor(List<String> paramTypes, String returnType) {
+        StringBuilder descriptor = new StringBuilder();
+        descriptor.append("(");
+
+        for (String paramType : paramTypes) {
+            descriptor.append(descriptorFor(paramType));
+        }
+
+        descriptor.append(")");
+        descriptor.append(descriptorFor(returnType));
+
+        return descriptor.toString();
     }
 
     private int loadOpcode(String type) {
