@@ -736,6 +736,8 @@ public class CodeGenerator {
             case UnaryNode unary -> generateUnary(unary, method);
             case FunctionCallNode call -> generateFunctionCallExpression(call, method);
             case ConstructorCallNode ctor -> generateConstructorCall(ctor, method);
+            case ArrayInitNode arrayInit -> generateArrayInit(arrayInit, method);
+            case IndexAccessNode idx -> generateIndexAccess(idx, method);
             case MemberAccessNode member -> generateMemberAccess(member, method);
             case null, default -> {
                 assert expression != null;
@@ -1009,34 +1011,39 @@ public class CodeGenerator {
         return collName;
     }
 
+    private String generateArrayInit(ArrayInitNode arrayInit, MethodVisitor method) {
+        String elementType = arrayInit.getType();
+        generateExpression(arrayInit.getSize(), method); // size on stack
+
+        switch (elementType) {
+            case "INT"  -> method.visitIntInsn(NEWARRAY, T_INT);
+            case "FLOAT" -> method.visitIntInsn(NEWARRAY, T_FLOAT);
+            case "BOOL"  -> method.visitIntInsn(NEWARRAY, T_BOOLEAN);
+            default      -> method.visitTypeInsn(ANEWARRAY,
+                    descriptorFor(elementType).replace("[", "").replace(";", "")
+                            .replace("L", "").replace("/", "/"));
         }
 
-        descriptor.append(")");
-        descriptor.append(descriptorFor(returnType));
-
-        return descriptor.toString();
+        return elementType + "[]";
     }
-
-    private String descriptorFor(String type) {
-        switch (type) {
-            case "INT":
-                return "I";
-
-            case "FLOAT":
-                return "F";
-
-            case "BOOL":
-                return "Z";
-
-            case "STRING":
-                return "Ljava/lang/String;";
-
-            case "VOID":
-                return "V";
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported type: " + type);
         }
+
+    private String generateIndexAccess(IndexAccessNode idx, MethodVisitor method) {
+        String arrayType = generateExpression(idx.getArray(), method);
+        generateExpression(idx.getIndex(), method);
+        String elementType = arrayType.endsWith("[]")
+                ? arrayType.substring(0, arrayType.length() - 2)
+                : arrayType;
+
+        int loadArrOpcode = switch (elementType) {
+            case "INT"    -> IALOAD;
+            case "FLOAT"  -> FALOAD;
+            case "BOOL"   -> BALOAD;
+            default       -> AALOAD;
+        };
+
+        method.visitInsn(loadArrOpcode);
+        return elementType;
     }
 
     private String generateMemberAccess(MemberAccessNode member, MethodVisitor method) {
