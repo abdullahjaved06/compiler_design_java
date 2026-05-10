@@ -77,7 +77,7 @@ public class CodeGenerator {
         for (ASTNode node : block.getStatements()) {
             if (node instanceof FunctionNode fn && "main".equals(fn.getName())) {
                 addMainFromBlock(writer, fn.getBody());
-                }
+            }
         }
 
         writer.visitEnd();
@@ -336,21 +336,21 @@ public class CodeGenerator {
                 pushDefault(type, method);
                 int slot = allocateSlot(name, type);
                 storeToSlot(type, slot, name, method);
-            return;
-        }
+                return;
+            }
 
             String valueType = generateExpression(assignment.getExpression(), method);
 
             if ("FLOAT".equals(type) && "INT".equals(valueType)) {
                 method.visitInsn(I2F);
                 valueType = "FLOAT";
-        }
+            }
 
             if (!type.equals(valueType)) {
                 throw new RuntimeException(
                         "CodeGenerationError: variable type mismatch for " + name
                                 + ": expected " + type + " got " + valueType);
-        }
+            }
 
             int slot = allocateSlot(name, type);
             storeToSlot(type, slot, name, method);
@@ -372,17 +372,17 @@ public class CodeGenerator {
         if (!oldType.equals(valueType)) {
             throw new RuntimeException(
                     "CodeGenerationError: variable type mismatch for " + name);
-            }
+        }
 
         int slot = localSlots.get(name);
         storeToSlot(oldType, slot, name, method);
     }
 
     private int allocateSlot(String name, String type) {
-            int slot = nextSlot;
+        int slot = nextSlot;
         nextSlot += slotSize(type);
-            localSlots.put(name, slot);
-            localTypes.put(name, type);
+        localSlots.put(name, slot);
+        localTypes.put(name, type);
         return slot;
     }
 
@@ -456,7 +456,7 @@ public class CodeGenerator {
 
                 if (!"INT".equals(varType)) {
                     throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
-        }
+                }
 
                 allocateSlot(varName, varType);
             }
@@ -471,8 +471,8 @@ public class CodeGenerator {
                 varType = localTypes.get(varName);
 
                 if (!"INT".equals(varType)) {
-            throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
-        }
+                    throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
+                }
             }
             case AssignmentNode init when init.getType() == null -> {
                 varName = init.getIdentifier();
@@ -704,7 +704,7 @@ public class CodeGenerator {
         String printMethod = withNewline ? "println" : "print";
         method.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", printMethod,
                 "(" + desc + ")V", false);
-        }
+    }
 
     private void generatePrintTyped(FunctionCallNode call, String expectedType, MethodVisitor method) {
         method.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
@@ -757,7 +757,7 @@ public class CodeGenerator {
             case "-":
                 if ("INT".equals(operandType)) {
                     method.visitInsn(INEG);
-                return "INT";
+                    return "INT";
                 } else if ("FLOAT".equals(operandType)) {
                     method.visitInsn(FNEG);
                     return "FLOAT";
@@ -882,13 +882,13 @@ public class CodeGenerator {
     }
 
     private String generateShortCircuitAnd(MethodVisitor method) {
-                method.visitInsn(IAND);
-                return "BOOL";
+        method.visitInsn(IAND);
+        return "BOOL";
     }
 
     private String generateShortCircuitOr(MethodVisitor method) {
-                method.visitInsn(IOR);
-                return "BOOL";
+        method.visitInsn(IOR);
+        return "BOOL";
     }
 
     private String generateZeroComparison(int jumpOpcode, MethodVisitor method) {
@@ -953,7 +953,7 @@ public class CodeGenerator {
         if (slot == -1) {
             method.visitFieldInsn(GETSTATIC, currentClassName, name, descriptorFor(type));
         } else {
-        method.visitVarInsn(loadOpcode(type), slot);
+            method.visitVarInsn(loadOpcode(type), slot);
         }
     }
 
@@ -1094,11 +1094,17 @@ public class CodeGenerator {
         }
 
         method.visitFieldInsn(PUTFIELD, baseType, store.getField(), descriptorFor(fieldType));
-        }
+    }
 
     private String generateIndexAccess(IndexAccessNode idx, MethodVisitor method) {
         String arrayType = generateExpression(idx.getArray(), method);
         generateExpression(idx.getIndex(), method);
+
+        if ("STRING".equals(arrayType)) {
+            method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "charAt", "(I)C", false);
+            return "INT";
+        }
+
         String elementType = arrayType.endsWith("[]")
                 ? arrayType.substring(0, arrayType.length() - 2)
                 : arrayType;
