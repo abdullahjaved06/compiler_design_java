@@ -49,7 +49,7 @@ public class Parser {
         // Check if the current token looks like a type declaration (INT, FLOAT, etc.)
         TokenType type = currentSymbol.getType();
 
-        if (currentSymbol.getType() == TokenType.FINAL) {
+        if (type == TokenType.FINAL) {
             return parseFinalDeclaration();
         }
 
@@ -327,21 +327,27 @@ public class Parser {
     }
 
     private ASTNode parseAssignmentAfterName(String id) {
-        String typeStr = null;
+        if (currentSymbol.getType() == TokenType.LBRACKET) {
+            advance();
+            ASTNode index = parseExpression();
+            match(TokenType.RBRACKET);
 
+            match(TokenType.ASSIGN);
+            ASTNode value = parseExpression();
+            match(TokenType.SEMICOLON);
+            return new ArrayStoreNode(new IdentifierNode(id), index, value);
+        }
         if (currentSymbol.getType() == TokenType.SEMICOLON) {
             match(TokenType.SEMICOLON);
-            return new AssignmentNode(typeStr, id);
+            return new AssignmentNode(null, id);
         }
 
         match(TokenType.ASSIGN);
-
         ASTNode rhs = parseExpression();
-
         match(TokenType.SEMICOLON);
-
-        return new AssignmentNode(typeStr, id, rhs);
+        return new AssignmentNode(null, id, rhs);
     }
+
     public ASTNode parseExpression() {
         return parseLogicalOR();
     }

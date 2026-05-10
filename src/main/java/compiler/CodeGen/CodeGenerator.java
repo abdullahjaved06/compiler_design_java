@@ -315,6 +315,7 @@ public class CodeGenerator {
         switch (statement) {
             case FunctionCallNode call -> generateFunctionCallStatement(call, method);
             case AssignmentNode assignment -> generateAssignment(assignment, method);
+            case ArrayStoreNode arrayStore -> generateArrayStore(arrayStore, method);
             case IfNode ifNode -> generateIf(ifNode, method);
             case WhileNode whileNode -> generateWhile(whileNode, method);
             case ForNode forNode -> generateFor(forNode, method);
@@ -1025,6 +1026,36 @@ public class CodeGenerator {
         }
 
         return elementType + "[]";
+    }
+
+    private void generateArrayStore(ArrayStoreNode store, MethodVisitor method) {
+        String arrayType = generateExpression(store.getArray(), method);
+
+        String elementType = arrayType.endsWith("[]")
+                ? arrayType.substring(0, arrayType.length() - 2)
+                : arrayType;
+
+        generateExpression(store.getIndex(), method);
+        String valueType = generateExpression(store.getValue(), method);
+
+        if ("FLOAT".equals(elementType) && "INT".equals(valueType)) {
+            method.visitInsn(I2F);
+            valueType = "FLOAT";
+        }
+
+        if (!elementType.equals(valueType)) {
+            throw new RuntimeException("CodeGenerationError: cannot store '" + valueType
+                    + "' into array of '" + elementType + "'.");
+        }
+
+        int storeArrOpcode = switch (elementType) {
+            case "INT"   -> IASTORE;
+            case "FLOAT" -> FASTORE;
+            case "BOOL"  -> BASTORE;
+            default      -> AASTORE;
+        };
+
+        method.visitInsn(storeArrOpcode);
     }
         }
 
