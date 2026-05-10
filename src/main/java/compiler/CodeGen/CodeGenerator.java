@@ -633,6 +633,7 @@ public class CodeGenerator {
             case LiteralNode literal -> generateLiteral(literal, method);
             case IdentifierNode identifier -> generateIdentifier(identifier, method);
             case BinaryExpressionNode binary -> generateBinaryExpression(binary, method);
+            case UnaryNode unary -> generateUnary(unary, method);
             case FunctionCallNode call -> generateFunctionCallExpression(call, method);
             case null, default -> {
                 assert expression != null;
@@ -641,17 +642,38 @@ public class CodeGenerator {
             }
         };
     }
+
+    private String generateUnary(UnaryNode unary, MethodVisitor method) {
+        String op = unary.getOperator();
+        String operandType = generateExpression(unary.getOperand(), method);
+
+        switch (op) {
             case "-":
-                method.visitInsn(ISUB);
+                if ("INT".equals(operandType)) {
+                    method.visitInsn(INEG);
                 return "INT";
+                } else if ("FLOAT".equals(operandType)) {
+                    method.visitInsn(FNEG);
+                    return "FLOAT";
+                }
 
-            case "*":
-                method.visitInsn(IMUL);
-                return "INT";
+                throw new RuntimeException(
+                        "CodeGenerationError: unary '-' requires INT or FLOAT, got " + operandType);
+            case "not":
+                if (!"BOOL".equals(operandType)) {
+                    throw new RuntimeException(
+                            "CodeGenerationError: 'not' requires BOOL, got " + operandType);
+                }
 
-            case "/":
-                method.visitInsn(IDIV);
-                return "INT";
+                method.visitInsn(ICONST_1);
+                method.visitInsn(IXOR);
+                return "BOOL";
+            default:
+                throw new RuntimeException(
+                        "CodeGenerationError: unsupported unary operator: " + op);
+        }
+    }
+
     private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
         String op       = binary.getOperator();
         String exprKind = binary.getType();
