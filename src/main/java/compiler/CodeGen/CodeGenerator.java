@@ -342,38 +342,67 @@ public class CodeGenerator {
     }
 
     private void generateFor(ForNode forNode, MethodVisitor method) {
-        if (!(forNode.getInit() instanceof AssignmentNode init)) {
-            throw new RuntimeException("CodeGenerationError: invalid for-loop initializer.");
+        ASTNode initNode = forNode.getInit();
+
+        String varName;
+        String varType = "INT";
+
+        switch (initNode) {
+            case AssignmentNode init when init.getType() != null -> {
+                varName = init.getIdentifier();
+                varType = init.getType();
+
+                if (!"INT".equals(varType)) {
+                    throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
         }
 
-        String name = init.getIdentifier();
-        String type = init.getType();
+                allocateSlot(varName, varType);
+            }
+            case IdentifierNode ident -> {
+                varName = ident.getName();
 
-        if (!"INT".equals(type)) {
+                if (!localSlots.containsKey(varName)) {
+                    throw new RuntimeException(
+                            "CodeGenerationError: for-loop variable '" + varName + "' is not declared.");
+                }
+
+                varType = localTypes.get(varName);
+
+                if (!"INT".equals(varType)) {
             throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
         }
+            }
+            case AssignmentNode init when init.getType() == null -> {
+                varName = init.getIdentifier();
 
-        int slot = nextSlot;
-        nextSlot++;
+                if (!localSlots.containsKey(varName)) {
+                    throw new RuntimeException(
+                            "CodeGenerationError: for-loop variable '" + varName + "' is not declared.");
+                }
 
-        localSlots.put(name, slot);
-        localTypes.put(name, "INT");
+                varType = localTypes.get(varName);
 
+                if (!"INT".equals(varType)) {
+                    throw new RuntimeException("CodeGenerationError: for-loop variable must be INT.");
+                }
+            }
+            case null, default -> throw new RuntimeException("CodeGenerationError: invalid for-loop initializer.");
+        }
+
+        int slot = localSlots.get(varName);
         String startType = generateExpression(forNode.getRangeStart(), method);
 
         if (!"INT".equals(startType)) {
             throw new RuntimeException("CodeGenerationError: for-loop start must be INT.");
         }
 
-        method.visitVarInsn(ISTORE, slot);
+        storeToSlot(varType, slot, varName, method);
 
         Label startLabel = new Label();
-        Label endLabel = new Label();
+        Label endLabel   = new Label();
 
         method.visitLabel(startLabel);
-
-        method.visitVarInsn(ILOAD, slot);
-
+        loadFromSlot(varType, slot, varName, method);
         String endType = generateExpression(forNode.getRangeEnd(), method);
 
         if (!"INT".equals(endType)) {
@@ -381,7 +410,6 @@ public class CodeGenerator {
         }
 
         method.visitJumpInsn(IF_ICMPGE, endLabel);
-
         generateBlock(forNode.getBody(), method);
 
         String updateType = generateExpression(forNode.getUpdate(), method);
@@ -390,8 +418,7 @@ public class CodeGenerator {
             throw new RuntimeException("CodeGenerationError: for-loop update must be INT.");
         }
 
-        method.visitVarInsn(ISTORE, slot);
-
+        storeToSlot(varType, slot, varName, method);
         method.visitJumpInsn(GOTO, startLabel);
         method.visitLabel(endLabel);
     }
@@ -412,8 +439,13 @@ public class CodeGenerator {
 
         String valueType = generateExpression(returnNode.getExpression(), method);
 
+        if ("FLOAT".equals(currentReturnType) && "INT".equals(valueType)) {
+            method.visitInsn(I2F);
+            valueType = "FLOAT";
+        }
+
         if (!currentReturnType.equals(valueType)) {
-            throw new RuntimeException("CodeGenerationError: wrong return type.");
+            throw new RuntimeException("CodeGenerationError: wrong return type. Expected " + currentReturnType + " got " + valueType);
         }
 
         method.visitInsn(returnOpcode(currentReturnType));
