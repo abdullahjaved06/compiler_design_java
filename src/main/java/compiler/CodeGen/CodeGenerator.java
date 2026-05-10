@@ -838,36 +838,41 @@ public class CodeGenerator {
         }
 
         String type = localTypes.get(name);
-        int slot = localSlots.get(name);
-
-        method.visitVarInsn(loadOpcode(type), slot);
-
+        int    slot = localSlots.get(name);
+        loadFromSlot(type, slot, name, method);
         return type;
+    }
+
+    private void loadFromSlot(String type, int slot, String name, MethodVisitor method) {
+        if (slot == -1) {
+            method.visitFieldInsn(GETSTATIC, currentClassName, name, descriptorFor(type));
+        } else {
+        method.visitVarInsn(loadOpcode(type), slot);
+        }
     }
 
     private String generateLiteral(LiteralNode literal, MethodVisitor method) {
         String value = literal.getValue();
 
-        switch (literal.getType()) {
-            case INT:
+        return switch (literal.getType()) {
+            case INT -> {
                 method.visitLdcInsn(Integer.parseInt(value));
-                return "INT";
-
-            case FLOAT:
+                yield "INT";
+            }
+            case FLOAT -> {
                 method.visitLdcInsn(Float.parseFloat(value));
-                return "FLOAT";
-
-            case STRING:
+                yield "FLOAT";
+            }
+            case STRING -> {
                 method.visitLdcInsn(value);
-                return "STRING";
-
-            case BOOL:
+                yield "STRING";
+            }
+            case BOOL -> {
                 method.visitInsn(Boolean.parseBoolean(value) ? ICONST_1 : ICONST_0);
-                return "BOOL";
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported literal.");
-        }
+                yield "BOOL";
+            }
+            default -> throw new RuntimeException("CodeGenerationError: unsupported literal.");
+        };
     }
 
     private String methodDescriptor(List<String> paramTypes, String returnType) {
