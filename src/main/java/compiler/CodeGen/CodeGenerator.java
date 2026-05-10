@@ -104,18 +104,8 @@ public class CodeGenerator {
 
     private ClassWriter startClass(String className) {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-
-        writer.visit(
-                V1_8,
-                ACC_PUBLIC,
-                className,
-                null,
-                "java/lang/Object",
-                null
-        );
-
+        writer.visit(V1_8, ACC_PUBLIC, className, null, "java/lang/Object", null);
         addConstructor(writer);
-
         return writer;
     }
 
@@ -154,7 +144,6 @@ public class CodeGenerator {
         );
 
         method.visitCode();
-
         localSlots.clear();
         localTypes.clear();
         nextSlot = 1;
@@ -166,13 +155,9 @@ public class CodeGenerator {
 
         String oldReturnType = currentReturnType;
         currentReturnType = "VOID";
-
         generateBlock(body, method);
-
         method.visitInsn(RETURN);
-
         currentReturnType = oldReturnType;
-
         method.visitMaxs(0, 0);
         method.visitEnd();
     }
@@ -541,50 +526,62 @@ public class CodeGenerator {
         }
     }
 
-    private void generatePrintln(FunctionCallNode call, MethodVisitor method) {
-        if (call.getArguments().size() != 1) {
-            throw new RuntimeException("CodeGenerationError: println expects 1 argument.");
-        }
-
-        method.visitFieldInsn(
-                GETSTATIC,
-                "java/lang/System",
-                "out",
-                "Ljava/io/PrintStream;"
-        );
-
-        String type = generateExpression(call.getArguments().get(0), method);
-
-        method.visitMethodInsn(
-                INVOKEVIRTUAL,
-                "java/io/PrintStream",
-                "println",
-                "(" + descriptorFor(type) + ")V",
-                false
-        );
+    private void emitReadScanner(String scannerMethod, String returnDesc, MethodVisitor method) {
+        method.visitTypeInsn(NEW, "java/util/Scanner");
+        method.visitInsn(DUP);
+        method.visitFieldInsn(GETSTATIC, "java/lang/System", "in", "Ljava/io/InputStream;");
+        method.visitMethodInsn(INVOKESPECIAL, "java/util/Scanner", "<init>",
+                "(Ljava/io/InputStream;)V", false);
+        method.visitMethodInsn(INVOKEVIRTUAL, "java/util/Scanner", scannerMethod,
+                "()" + returnDesc, false);
     }
 
-    private String generateExpression(ASTNode expression, MethodVisitor method) {
-        if (expression instanceof LiteralNode literal) {
-            return generateLiteral(literal, method);
+    private void generatePrintln(FunctionCallNode call, MethodVisitor method) {
+        method.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+
+        if (call.getArguments().isEmpty()) {
+            method.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "()V", false);
+            return;
         }
 
-        if (expression instanceof IdentifierNode identifier) {
-            return generateIdentifier(identifier, method);
+        String type = generateExpression(call.getArguments().get(0), method);
+        String desc = printDescriptorFor(type);
+        method.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(" + desc + ")V", false);
+    }
+
+    private void generatePrint(FunctionCallNode call, MethodVisitor method, boolean withNewline) {
+        if (call.getArguments().isEmpty()) return;
+
+        method.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+        String type = generateExpression(call.getArguments().get(0), method);
+        String desc = printDescriptorFor(type);
+        String printMethod = withNewline ? "println" : "print";
+        method.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", printMethod,
+                "(" + desc + ")V", false);
         }
 
-        if (expression instanceof BinaryExpressionNode binary) {
-            return generateBinaryExpression(binary, method);
+    private void generatePrintTyped(FunctionCallNode call, String expectedType, MethodVisitor method) {
+        method.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+        String type = generateExpression(call.getArguments().get(0), method);
+
+        if ("FLOAT".equals(expectedType) && "INT".equals(type)) {
+            method.visitInsn(I2F);
+            type = "FLOAT";
         }
 
-        if (expression instanceof FunctionCallNode call) {
-            return generateFunctionCallExpression(call, method);
-        }
+        String desc = printDescriptorFor(type);
+        method.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println",
+                "(" + desc + ")V", false);
+    }
 
-        throw new RuntimeException(
-                "CodeGenerationError: unsupported expression: "
-                        + expression.getClass().getSimpleName()
-        );
+    private String printDescriptorFor(String type) {
+        return switch (type) {
+            case "INT"    -> "I";
+            case "FLOAT"  -> "F";
+            case "BOOL"   -> "Z";
+            case "STRING" -> "Ljava/lang/String;";
+            default       -> "Ljava/lang/Object;";
+        };
     }
 
     private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
