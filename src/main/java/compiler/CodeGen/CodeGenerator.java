@@ -1088,41 +1088,50 @@ public class CodeGenerator {
         return descriptor.toString();
     }
 
+    private String descriptorFor(String type) {
+        return switch (type) {
+            case "INT"   -> "I";
+            case "FLOAT" -> "F";
+            case "BOOL"  -> "Z";
+            case "VOID"  -> "V";
+            case "STRING" -> "Ljava/lang/String;";
+            default -> {
+                if (type.endsWith("[]")) {
+                    String base = type.substring(0, type.length() - 2);
+                    yield "[" + descriptorFor(base);
+                }
+                yield "L" + type + ";";
+            }
+        };
+    }
+
+    private int storeOpcode(String type) {
+        return switch (type) {
+            case "INT", "BOOL" -> ISTORE;
+            case "FLOAT" -> FSTORE;
+            default -> ASTORE;
+        };
+    }
+
     private int loadOpcode(String type) {
-        switch (type) {
-            case "INT":
-            case "BOOL":
-                return ILOAD;
-
-            case "FLOAT":
-                return FLOAD;
-
-            case "STRING":
-                return ALOAD;
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported variable type: " + type);
-        }
+        return switch (type) {
+            case "INT", "BOOL" -> ILOAD;
+            case "FLOAT"       -> FLOAD;
+            default            -> ALOAD;
+        };
     }
 
     private int returnOpcode(String type) {
-        switch (type) {
-            case "INT":
-            case "BOOL":
-                return IRETURN;
+        return switch (type) {
+            case "INT", "BOOL" -> IRETURN;
+            case "FLOAT"       -> FRETURN;
+            case "VOID"        -> RETURN;
+            default            -> ARETURN;
+        };
+    }
 
-            case "FLOAT":
-                return FRETURN;
-
-            case "STRING":
-                return ARETURN;
-
-            case "VOID":
-                return RETURN;
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported return type: " + type);
-        }
+    private int slotSize(String type) {
+        return 1;
     }
 
     private String classNameFromFile(String outputFile) {
@@ -1133,6 +1142,12 @@ public class CodeGenerator {
         }
 
         return fileName;
+    }
+
+    private String outputDirectoryFromFile(String outputFile) {
+        Path parent = Path.of(outputFile).getParent();
+        if (parent == null) return "";
+        return parent.toString() + "/";
     }
 
     private void writeFile(String outputFile, byte[] bytes) throws IOException {
