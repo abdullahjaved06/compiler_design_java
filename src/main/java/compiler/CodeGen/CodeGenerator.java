@@ -224,51 +224,34 @@ public class CodeGenerator {
                             + statement.getClass().getSimpleName());
         }
     }
-            return;
-        }
-
-        if (statement instanceof WhileNode whileNode) {
-            generateWhile(whileNode, method);
-            return;
-        }
-        if (statement instanceof ForNode forNode) {
-            generateFor(forNode, method);
-            return;
-        }
-
-        if (statement instanceof ReturnNode returnNode) {
-            generateReturn(returnNode, method);
-            return;
-        }
-
-        throw new RuntimeException(
-                "CodeGenerationError: unsupported statement: "
-                        + statement.getClass().getSimpleName()
-        );
-    }
 
     private void generateAssignment(AssignmentNode assignment, MethodVisitor method) {
         String name = assignment.getIdentifier();
         String type = assignment.getType();
 
-        if (assignment.getExpression() == null) {
-            throw new RuntimeException("CodeGenerationError: assignment without value is not supported yet: " + name);
+        if (type != null) {
+            if (assignment.getExpression() == null) {
+                pushDefault(type, method);
+                int slot = allocateSlot(name, type);
+                storeToSlot(type, slot, name, method);
+            return;
         }
 
-        String valueType = generateExpression(assignment.getExpression(), method);
+            String valueType = generateExpression(assignment.getExpression(), method);
 
-        if (type != null) {
+            if ("FLOAT".equals(type) && "INT".equals(valueType)) {
+                method.visitInsn(I2F);
+                valueType = "FLOAT";
+        }
+
             if (!type.equals(valueType)) {
-                throw new RuntimeException("CodeGenerationError: variable type mismatch for " + name);
-            }
+                throw new RuntimeException(
+                        "CodeGenerationError: variable type mismatch for " + name
+                                + ": expected " + type + " got " + valueType);
+        }
 
-            int slot = nextSlot;
-            nextSlot++;
-
-            localSlots.put(name, slot);
-            localTypes.put(name, type);
-
-            method.visitVarInsn(storeOpcode(type), slot);
+            int slot = allocateSlot(name, type);
+            storeToSlot(type, slot, name, method);
             return;
         }
 
@@ -276,13 +259,47 @@ public class CodeGenerator {
             throw new RuntimeException("CodeGenerationError: unknown variable: " + name);
         }
 
-        String oldType = localTypes.get(name);
+        String oldType    = localTypes.get(name);
+        String valueType  = generateExpression(assignment.getExpression(), method);
 
-        if (!oldType.equals(valueType)) {
-            throw new RuntimeException("CodeGenerationError: variable type mismatch for " + name);
+        if ("FLOAT".equals(oldType) && "INT".equals(valueType)) {
+            method.visitInsn(I2F);
+            valueType = "FLOAT";
         }
 
-        method.visitVarInsn(storeOpcode(oldType), localSlots.get(name));
+        if (!oldType.equals(valueType)) {
+            throw new RuntimeException(
+                    "CodeGenerationError: variable type mismatch for " + name);
+            }
+
+        int slot = localSlots.get(name);
+        storeToSlot(oldType, slot, name, method);
+    }
+
+    private int allocateSlot(String name, String type) {
+            int slot = nextSlot;
+        nextSlot += slotSize(type);
+            localSlots.put(name, slot);
+            localTypes.put(name, type);
+        return slot;
+    }
+
+    private void storeToSlot(String type, int slot, String name, MethodVisitor method) {
+        if (slot == -1) {
+            method.visitFieldInsn(PUTSTATIC, currentClassName, name, descriptorFor(type));
+        } else {
+            method.visitVarInsn(storeOpcode(type), slot);
+        }
+    }
+    private void pushDefault(String type, MethodVisitor method) {
+        switch (type) {
+            case "INT", "BOOL" -> method.visitInsn(ICONST_0);
+            case "FLOAT" -> method.visitInsn(FCONST_0);
+            case "STRING" -> method.visitInsn(ACONST_NULL);
+            default -> {
+                method.visitInsn(ACONST_NULL);
+            }
+        }
     }
 
     private void generateIf(IfNode ifNode, MethodVisitor method) {
@@ -296,11 +313,8 @@ public class CodeGenerator {
         Label endLabel = new Label();
 
         method.visitJumpInsn(IFEQ, elseLabel);
-
         generateBlock(ifNode.getThenBlock(), method);
-
         method.visitJumpInsn(GOTO, endLabel);
-
         method.visitLabel(elseLabel);
 
         if (ifNode.getElseBlock() != null) {
@@ -315,7 +329,6 @@ public class CodeGenerator {
         Label endLabel = new Label();
 
         method.visitLabel(startLabel);
-
         String conditionType = generateExpression(whileNode.getCondition(), method);
 
         if (!"BOOL".equals(conditionType)) {
@@ -323,12 +336,11 @@ public class CodeGenerator {
         }
 
         method.visitJumpInsn(IFEQ, endLabel);
-
         generateBlock(whileNode.getBody(), method);
-
         method.visitJumpInsn(GOTO, startLabel);
         method.visitLabel(endLabel);
     }
+
     private void generateFor(ForNode forNode, MethodVisitor method) {
         if (!(forNode.getInit() instanceof AssignmentNode init)) {
             throw new RuntimeException("CodeGenerationError: invalid for-loop initializer.");
@@ -584,34 +596,19 @@ public class CodeGenerator {
         };
     }
 
-    private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
-        String leftType = generateExpression(binary.getLeft(), method);
-        String rightType = generateExpression(binary.getRight(), method);
-
-        if (leftType.equals("INT") && rightType.equals("INT")) {
-            return generateIntBinary(binary.getOperator(), method);
-        }
-
-        if (leftType.equals("FLOAT") && rightType.equals("FLOAT")) {
-            return generateFloatBinary(binary.getOperator(), method);
-        }
-
-        if (leftType.equals("BOOL") && rightType.equals("BOOL")) {
-            return generateBoolBinary(binary.getOperator(), method);
-        }
-
-        throw new RuntimeException(
-                "CodeGenerationError: unsupported binary operation for "
-                        + leftType + " and " + rightType
-        );
+    private String generateExpression(ASTNode expression, MethodVisitor method) {
+        return switch (expression) {
+            case LiteralNode literal -> generateLiteral(literal, method);
+            case IdentifierNode identifier -> generateIdentifier(identifier, method);
+            case BinaryExpressionNode binary -> generateBinaryExpression(binary, method);
+            case FunctionCallNode call -> generateFunctionCallExpression(call, method);
+            case null, default -> {
+                assert expression != null;
+                throw new RuntimeException("CodeGenerationError: unsupported expression: "
+                        + expression.getClass().getSimpleName());
+            }
+        };
     }
-
-    private String generateIntBinary(String operator, MethodVisitor method) {
-        switch (operator) {
-            case "+":
-                method.visitInsn(IADD);
-                return "INT";
-
             case "-":
                 method.visitInsn(ISUB);
                 return "INT";
@@ -623,94 +620,159 @@ public class CodeGenerator {
             case "/":
                 method.visitInsn(IDIV);
                 return "INT";
+    private String generateBinaryExpression(BinaryExpressionNode binary, MethodVisitor method) {
+        String op       = binary.getOperator();
+        String exprKind = binary.getType();
 
-            case "%":
-                method.visitInsn(IREM);
-                return "INT";
+        String leftType  = generateExpression(binary.getLeft(),  method);
+        String rightType = generateExpression(binary.getRight(), method);
 
-            case "==":
-                return generateIntComparison(IF_ICMPEQ, method);
-
-            case "=/=":
-            case "!=":
-                return generateIntComparison(IF_ICMPNE, method);
-
-            case "<":
-                return generateIntComparison(IF_ICMPLT, method);
-
-            case ">":
-                return generateIntComparison(IF_ICMPGT, method);
-
-            case "<=":
-                return generateIntComparison(IF_ICMPLE, method);
-
-            case ">=":
-                return generateIntComparison(IF_ICMPGE, method);
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported INT operator: " + operator);
+        if ("FLOAT".equals(leftType) && "INT".equals(rightType)) {
+            method.visitInsn(I2F);
+            rightType = "FLOAT";
+        } else if ("INT".equals(leftType) && "FLOAT".equals(rightType)) {
+            method.visitInsn(SWAP);
+            method.visitInsn(I2F);
+            method.visitInsn(SWAP);
+            leftType = "FLOAT";
         }
+
+        if ("INT".equals(leftType) && "INT".equals(rightType)) {
+            return generateIntBinary(op, exprKind, method);
+        }
+
+        if ("FLOAT".equals(leftType) && "FLOAT".equals(rightType)) {
+            return generateFloatBinary(op, exprKind, method);
+        }
+
+        if ("BOOL".equals(leftType) && "BOOL".equals(rightType)) {
+            return generateBoolBinary(op, method);
+        }
+
+        if ("STRING".equals(leftType) && "STRING".equals(rightType)) {
+            return generateStringBinary(op, method);
+        }
+
+        throw new RuntimeException("CodeGenerationError: unsupported binary operation for "
+                + leftType + " and " + rightType);
     }
 
-    private String generateFloatBinary(String operator, MethodVisitor method) {
-        switch (operator) {
-            case "+":
-                method.visitInsn(FADD);
-                return "FLOAT";
-
-            case "-":
-                method.visitInsn(FSUB);
-                return "FLOAT";
-
-            case "*":
-                method.visitInsn(FMUL);
-                return "FLOAT";
-
-            case "/":
-                method.visitInsn(FDIV);
-                return "FLOAT";
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported FLOAT operator: " + operator);
-        }
+    private String generateIntBinary(String op, String exprKind, MethodVisitor method) {
+        return switch (op) {
+            case "+" -> { method.visitInsn(IADD); yield "INT"; }
+            case "-" -> { method.visitInsn(ISUB); yield "INT"; }
+            case "*" -> { method.visitInsn(IMUL); yield "INT"; }
+            case "/" -> { method.visitInsn(IDIV); yield "INT"; }
+            case "%" -> { method.visitInsn(IREM); yield "INT"; }
+            case "==" -> generateIntComparison(IF_ICMPEQ, method);
+            case "=/=", "!=" -> generateIntComparison(IF_ICMPNE, method);
+            case "<"  -> generateIntComparison(IF_ICMPLT, method);
+            case ">"  -> generateIntComparison(IF_ICMPGT, method);
+            case "<=" -> generateIntComparison(IF_ICMPLE, method);
+            case ">=" -> generateIntComparison(IF_ICMPGE, method);
+            default -> throw new RuntimeException(
+                    "CodeGenerationError: unsupported INT operator: " + op);
+        };
     }
 
-    private String generateBoolBinary(String operator, MethodVisitor method) {
-        switch (operator) {
-            case "&&":
+    private String generateFloatBinary(String op, String exprKind, MethodVisitor method) {
+        return switch (op) {
+            case "+" -> { method.visitInsn(FADD); yield "FLOAT"; }
+            case "-" -> { method.visitInsn(FSUB); yield "FLOAT"; }
+            case "*" -> { method.visitInsn(FMUL); yield "FLOAT"; }
+            case "/" -> { method.visitInsn(FDIV); yield "FLOAT"; }
+            case "==" -> {
+                method.visitInsn(FCMPL);
+                yield generateZeroComparison(IFEQ, method);
+            }
+            case "=/=", "!=" -> {
+                method.visitInsn(FCMPL);
+                yield generateZeroComparison(IFNE, method);
+            }
+            case "<" -> {
+                method.visitInsn(FCMPL);
+                yield generateZeroComparison(IFLT, method);
+            }
+            case ">" -> {
+                method.visitInsn(FCMPG);
+                yield generateZeroComparison(IFGT, method);
+            }
+            case "<=" -> {
+                method.visitInsn(FCMPL);
+                yield generateZeroComparison(IFLE, method);
+            }
+            case ">=" -> {
+                method.visitInsn(FCMPG);
+                yield generateZeroComparison(IFGE, method);
+            }
+            default -> throw new RuntimeException(
+                    "CodeGenerationError: unsupported FLOAT operator: " + op);
+        };
+    }
+
+    private String generateBoolBinary(String op, MethodVisitor method) {
+        return switch (op) {
+            case "&&" -> generateShortCircuitAnd(method);
+            case "||" -> generateShortCircuitOr(method);
+            case "==" -> generateIntComparison(IF_ICMPEQ, method);
+            case "=/=", "!=" -> generateIntComparison(IF_ICMPNE, method);
+            default -> throw new RuntimeException(
+                    "CodeGenerationError: unsupported BOOL operator: " + op);
+        };
+    }
+
+    private String generateShortCircuitAnd(MethodVisitor method) {
                 method.visitInsn(IAND);
                 return "BOOL";
+    }
 
-            case "||":
+    private String generateShortCircuitOr(MethodVisitor method) {
                 method.visitInsn(IOR);
                 return "BOOL";
+    }
 
-            case "==":
-                return generateIntComparison(IF_ICMPEQ, method);
+    private String generateZeroComparison(int jumpOpcode, MethodVisitor method) {
+        Label trueLabel = new Label();
+        Label endLabel  = new Label();
+        method.visitJumpInsn(jumpOpcode, trueLabel);
+        method.visitInsn(ICONST_0);
+        method.visitJumpInsn(GOTO, endLabel);
+        method.visitLabel(trueLabel);
+        method.visitInsn(ICONST_1);
+        method.visitLabel(endLabel);
+        return "BOOL";
+    }
 
-            case "=/=":
-            case "!=":
-                return generateIntComparison(IF_ICMPNE, method);
-
-            default:
-                throw new RuntimeException("CodeGenerationError: unsupported BOOL operator: " + operator);
+    private String generateStringBinary(String op, MethodVisitor method) {
+        if ("+".equals(op)) {
+            method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "concat",
+                    "(Ljava/lang/String;)Ljava/lang/String;", false);
+            return "STRING";
         }
+        if ("==".equals(op)) {
+            method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals",
+                    "(Ljava/lang/Object;)Z", false);
+            return "BOOL";
+        }
+        if ("=/=".equals(op) || "!=".equals(op)) {
+            method.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "equals",
+                    "(Ljava/lang/Object;)Z", false);
+            method.visitInsn(ICONST_1);
+            method.visitInsn(IXOR);
+            return "BOOL";
+        }
+        throw new RuntimeException("CodeGenerationError: unsupported STRING operator: " + op);
     }
 
     private String generateIntComparison(int jumpOpcode, MethodVisitor method) {
         Label trueLabel = new Label();
         Label endLabel = new Label();
-
         method.visitJumpInsn(jumpOpcode, trueLabel);
-
         method.visitInsn(ICONST_0);
         method.visitJumpInsn(GOTO, endLabel);
-
         method.visitLabel(trueLabel);
         method.visitInsn(ICONST_1);
-
         method.visitLabel(endLabel);
-
         return "BOOL";
     }
 
