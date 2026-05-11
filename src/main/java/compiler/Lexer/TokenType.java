@@ -76,6 +76,8 @@ public enum TokenType {
     PRINTLN,
     WRITE,
     MAIN,
+    MIN,
+    MAX,
 
     // === SPECIAL ===
     EOF,                // End of file

@@ -51,6 +51,8 @@ public class SemanticAnalyzer {
         functionRegistry.put("print_INT",   new FunctionDef(null, List.of("INT")));
         functionRegistry.put("print_FLOAT", new FunctionDef(null, List.of("FLOAT")));
         functionRegistry.put("not",         new FunctionDef("BOOL", List.of("BOOL")));
+        functionRegistry.put("min",         new FunctionDef("ANY", List.of("ANY", "ANY")));
+        functionRegistry.put("max",         new FunctionDef("ANY", List.of("ANY", "ANY")));
     }
 
     public void analyze(ASTNode root) {
@@ -254,8 +256,6 @@ public class SemanticAnalyzer {
         }
     }
 
-
-
     private void visitCollection(CollectionNode node) {
         for (ASTNode member : node.getBody().getStatements()) {
             if (member instanceof AssignmentNode) {
@@ -363,13 +363,32 @@ public class SemanticAnalyzer {
 
     private String handleFunctionCall(FunctionCallNode node) {
         String name = node.getFunctionName();
+        List<ASTNode> args = node.getArguments();
+
         if (!functionRegistry.containsKey(name)) {
             throw new RuntimeException(
                     "ScopeError: Function '" + name + "' is not defined.");
         }
 
+        if (name.equals("min") || name.equals("max")) {
+            if (args.size() != 2) {
+                throw new RuntimeException("ArgumentError: '" + name + "' expects 2 arguments.");
+            }
+
+            String leftType = inferType(args.get(0));
+            String rightType = inferType(args.get(1));
+
+            boolean leftNumeric = "INT".equals(leftType) || "FLOAT".equals(leftType);
+            boolean rightNumeric = "INT".equals(rightType) || "FLOAT".equals(rightType);
+
+            if (!leftNumeric || !rightNumeric) {
+                throw new RuntimeException("ArgumentError: '" + name + "' requires INT or FLOAT operands.");
+            }
+
+            return ("FLOAT".equals(leftType) || "FLOAT".equals(rightType)) ? "FLOAT" : "INT";
+        }
+
         FunctionDef def = functionRegistry.get(name);
-        List<ASTNode> args = node.getArguments();
 
         boolean isInbuilt = def.paramTypes.size() == 1
                 && "ANY".equals(def.paramTypes.getFirst());

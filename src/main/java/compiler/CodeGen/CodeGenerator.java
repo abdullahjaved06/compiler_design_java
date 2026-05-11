@@ -679,6 +679,30 @@ public class CodeGenerator {
                 method.visitInsn(IXOR);
                 return "BOOL";
             }
+            case "min", "max" -> {
+                String leftType = generateExpression(call.getArguments().get(0), method);
+                String rightType = generateExpression(call.getArguments().get(1), method);
+
+                if ("FLOAT".equals(leftType) && "INT".equals(rightType)) {
+                    method.visitInsn(I2F);
+                    rightType = "FLOAT";
+                } else if ("INT".equals(leftType) && "FLOAT".equals(rightType)) {
+                    int tmpSlot = nextSlot++;
+                    method.visitVarInsn(FSTORE, tmpSlot);
+                    method.visitInsn(I2F);
+                    method.visitVarInsn(FLOAD, tmpSlot);
+                    nextSlot--;
+                    leftType = "FLOAT";
+                }
+
+                if ("INT".equals(leftType)) {
+                    method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", name, "(II)I", false);
+                    return "INT";
+                } else {
+                    method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", name, "(FF)F", false);
+                    return "FLOAT";
+                }
+            }
         }
 
         if (!functionTypes.containsKey(name)) {

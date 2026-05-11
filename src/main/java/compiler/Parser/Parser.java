@@ -540,7 +540,7 @@ public class Parser {
                 type == TokenType.READ_STRING || type == TokenType.PRINT ||
                 type == TokenType.PRINTLN || type == TokenType.FLOOR ||
                 type == TokenType.CEIL || type == TokenType.STR ||
-                type == TokenType.LENGTH || type == TokenType.WRITE || type == TokenType.NOT;
-
+                type == TokenType.LENGTH || type == TokenType.WRITE ||
+                type == TokenType.NOT || type == TokenType.MIN || type == TokenType.MAX;
     }
 }

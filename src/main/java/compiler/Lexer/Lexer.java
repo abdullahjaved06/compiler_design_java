@@ -40,6 +40,8 @@ public class Lexer {
         keywords.put("println", TokenType.PRINTLN);
         keywords.put("write", TokenType.WRITE);
         keywords.put("main", TokenType.MAIN);
+        keywords.put("min", TokenType.MIN);
+        keywords.put("max", TokenType.MAX);
     }
     public Lexer(Reader input) {
         this.input = input;
