@@ -641,8 +641,9 @@ public class CodeGenerator {
             }
             case "str" -> {
                 generateExpression(call.getArguments().getFirst(), method);
+                method.visitInsn(I2C);
                 method.visitMethodInsn(INVOKESTATIC, "java/lang/String", "valueOf",
-                        "(I)Ljava/lang/String;", false);
+                        "(C)Ljava/lang/String;", false);
                 return "STRING";
             }
             case "length" -> {
