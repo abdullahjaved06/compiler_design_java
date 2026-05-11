@@ -30,6 +30,7 @@ public class Lexer {
         keywords.put("str", TokenType.STR);
         keywords.put("length", TokenType.LENGTH);
         keywords.put("floor", TokenType.FLOOR);
+        keywords.put("ceil", TokenType.CEIL);
         keywords.put("read_INT", TokenType.READ_INT);
         keywords.put("read_FLOAT", TokenType.READ_FLOAT);
         keywords.put("read_STRING", TokenType.READ_STRING);
@@ -117,7 +118,7 @@ public class Lexer {
     //Read a number (integer or float)
      private Symbol readNumber(int startLine, int startColumn) {
         StringBuilder sb = new StringBuilder();
-        
+
         // Handle leading zeros: 00342 -> 342
         while (!isAtEnd() && peek() == '0') {
             advance();
@@ -132,27 +133,27 @@ public class Lexer {
             }
             // Otherwise skip the leading zero and continue
         }
-        
+
         // Read integer part
         while (!isAtEnd() && Character.isDigit(peek())) {
             sb.append(peek());
             advance();
         }
-        
+
         // Check for decimal point (float)
         if (!isAtEnd() && peek() == '.') {
             sb.append('.');
             advance();
-            
+
             // Read fractional part
             while (!isAtEnd() && Character.isDigit(peek())) {
                 sb.append(peek());
                 advance();
             }
-            
+
             return new Symbol(TokenType.FLOAT_LITERAL, sb.toString(), startLine, startColumn);
         }
-        
+
         // It's an integer
         String value = sb.toString();
         if (value.isEmpty()) {

@@ -1021,9 +1021,12 @@ public class CodeGenerator {
             case "INT"  -> method.visitIntInsn(NEWARRAY, T_INT);
             case "FLOAT" -> method.visitIntInsn(NEWARRAY, T_FLOAT);
             case "BOOL"  -> method.visitIntInsn(NEWARRAY, T_BOOLEAN);
-            default      -> method.visitTypeInsn(ANEWARRAY,
-                    descriptorFor(elementType).replace("[", "").replace(";", "")
-                            .replace("L", "").replace("/", "/"));
+            default      -> {
+                String desc = descriptorFor(elementType);
+                String internalName = desc.startsWith("L") && desc.endsWith(";")
+                        ? desc.substring(1, desc.length() - 1) : desc;
+                method.visitTypeInsn(ANEWARRAY, internalName);
+            }
         }
 
         return elementType + "[]";

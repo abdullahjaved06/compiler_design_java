@@ -136,6 +136,8 @@ public class SemanticAnalyzer {
             case ForNode forNode -> visitFor(forNode);
             case ReturnNode returnNode -> visitReturn(returnNode);
             case FunctionCallNode functionCallNode -> inferType(node);
+            case ArrayStoreNode arrayStoreNode  -> visitArrayStore(arrayStoreNode);
+            case FieldStoreNode fieldStoreNode  -> visitFieldStore(fieldStoreNode);
             default -> {
                 return;
             }
@@ -196,6 +198,62 @@ public class SemanticAnalyzer {
             }
         }
     }
+
+    private void visitArrayStore(ArrayStoreNode node) {
+        String arrayType = inferType(node.getArray());
+        if (!arrayType.endsWith("[]")) {
+            throw new RuntimeException(
+                    "TypeError: Index-write operator [] applied to non-array type '"
+                            + arrayType + "'.");
+        }
+        String elementType = arrayType.substring(0, arrayType.length() - 2);
+
+        String indexType = inferType(node.getIndex());
+        if (!"INT".equals(indexType)) {
+            throw new RuntimeException("TypeError: Array index must be INT, found '" + indexType + "'.");
+        }
+
+        String valueType = inferType(node.getValue());
+        if (!typesCompatible(elementType, valueType)) {
+            throw new RuntimeException(
+                    "TypeError: Cannot store '" + valueType +
+                            "' into array of '" + elementType + "'.");
+        }
+    }
+
+    private void visitFieldStore(FieldStoreNode node) {
+        String collType = inferType(node.getTarget());
+        String baseType = collType.replace("[]", "");
+
+        if (!collectionRegistry.containsKey(baseType)) {
+            throw new RuntimeException(
+                    "TypeError: Field-write '." + node.getField() +
+                            "' on non-collection type '" + collType + "'.");
+        }
+
+        String fieldType = null;
+        for (FieldDef fd : collectionRegistry.get(baseType)) {
+            if (fd.name.equals(node.getField())) {
+                fieldType = fd.type;
+                break;
+            }
+        }
+        if (fieldType == null) {
+            throw new RuntimeException(
+                    "TypeError: Collection '" + baseType +
+                            "' has no field '" + node.getField() + "'.");
+        }
+
+        String valueType = inferType(node.getValue());
+        if (!typesCompatible(fieldType, valueType)) {
+            throw new RuntimeException(
+                    "TypeError: Cannot assign '" + valueType +
+                            "' to field '" + node.getField() +
+                            "' of type '" + fieldType + "'.");
+        }
+    }
+
+
 
     private void visitCollection(CollectionNode node) {
         for (ASTNode member : node.getBody().getStatements()) {
@@ -378,6 +436,14 @@ public class SemanticAnalyzer {
             }
             case IndexAccessNode indexAccessNode -> {
                 String arrayType = inferType(indexAccessNode.getArray());
+                if ("STRING".equals(arrayType)) {
+                    String indexType = inferType(indexAccessNode.getIndex());
+                    if (!"INT".equals(indexType)) {
+                        throw new RuntimeException(
+                                "TypeError: String index must be INT, found '" + indexType + "'.");
+                    }
+                    return "INT";
+                }
                 if (!arrayType.endsWith("[]")) {
                     throw new RuntimeException(
                             "TypeError: Index operator [] applied to non-array type '" +
