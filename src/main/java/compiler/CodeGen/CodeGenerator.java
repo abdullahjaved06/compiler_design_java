@@ -170,13 +170,23 @@ public class CodeGenerator {
     }
 
     private void emitStaticFields(ClassWriter writer) {
+        writer.visitField(ACC_PRIVATE | ACC_STATIC, "__scanner__", "Ljava/util/Scanner;", null, null).visitEnd();
+
         for (Map.Entry<String, String> entry : globalFieldDescriptors.entrySet()) {
-            writer.visitField(ACC_PUBLIC | ACC_STATIC, entry.getKey(), entry.getValue(), null, null)
-                    .visitEnd();
+            writer.visitField(ACC_PUBLIC | ACC_STATIC, entry.getKey(), entry.getValue(), null, null).visitEnd();
         }
     }
 
     private void emitStaticInitializer(ClassWriter writer, BlockNode block) {
+        MethodVisitor clinit = writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+        clinit.visitCode();
+
+        clinit.visitTypeInsn(NEW, "java/util/Scanner");
+        clinit.visitInsn(DUP);
+        clinit.visitFieldInsn(GETSTATIC, "java/lang/System", "in", "Ljava/io/InputStream;");
+        clinit.visitMethodInsn(INVOKESPECIAL, "java/util/Scanner", "<init>", "(Ljava/io/InputStream;)V", false);
+        clinit.visitFieldInsn(PUTSTATIC, currentClassName, "__scanner__", "Ljava/util/Scanner;");
+
         boolean anyInit = false;
 
         for (ASTNode node : block.getStatements()) {
@@ -190,10 +200,12 @@ public class CodeGenerator {
             }
         }
 
-        if (!anyInit && globalFieldDescriptors.isEmpty()) return;
-
-        MethodVisitor clinit = writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
-        clinit.visitCode();
+        if (!anyInit && globalFieldDescriptors.isEmpty()) {
+            clinit.visitInsn(RETURN);
+            clinit.visitMaxs(0, 0);
+            clinit.visitEnd();
+            return;
+        }
 
         localSlots.clear();
         localTypes.clear();
@@ -296,7 +308,7 @@ public class CodeGenerator {
         currentReturnType = returnType;
         generateBlock(function.getBody(), method);
 
-        if ("VOID".equals(returnType)) {
+        if ("VOID".equals(returnType) && !endsWithReturn(function.getBody())) {
             method.visitInsn(RETURN);
         }
 
@@ -305,10 +317,27 @@ public class CodeGenerator {
         method.visitEnd();
     }
 
+    private boolean endsWithReturn(BlockNode block) {
+        List<ASTNode> stmts = block.getStatements();
+        if (stmts.isEmpty()) return false;
+        ASTNode last = stmts.getLast();
+        return last instanceof ReturnNode;
+    }
+
     private void generateBlock(BlockNode block, MethodVisitor method) {
+        Map<String, Integer> savedSlots = new HashMap<>(localSlots);
+        Map<String, String> savedTypes = new HashMap<>(localTypes);
+        int savedNextSlot = nextSlot;
+
         for (ASTNode statement : block.getStatements()) {
             generateStatement(statement, method);
         }
+
+        localSlots.clear();
+        localSlots.putAll(savedSlots);
+        localTypes.clear();
+        localTypes.putAll(savedTypes);
+        nextSlot = savedNextSlot;
     }
 
     private void generateStatement(ASTNode statement, MethodVisitor method) {
@@ -444,6 +473,10 @@ public class CodeGenerator {
     }
 
     private void generateFor(ForNode forNode, MethodVisitor method) {
+        Map<String, Integer> savedSlots = new HashMap<>(localSlots);
+        Map<String, String> savedTypes = new HashMap<>(localTypes);
+        int savedNextSlot = nextSlot;
+
         ASTNode initNode = forNode.getInit();
 
         String varName;
@@ -523,6 +556,12 @@ public class CodeGenerator {
         storeToSlot(varType, slot, varName, method);
         method.visitJumpInsn(GOTO, startLabel);
         method.visitLabel(endLabel);
+
+        localSlots.clear();
+        localSlots.putAll(savedSlots);
+        localTypes.clear();
+        localTypes.putAll(savedTypes);
+        nextSlot = savedNextSlot;
     }
 
     private void generateReturn(ReturnNode returnNode, MethodVisitor method) {
@@ -633,6 +672,12 @@ public class CodeGenerator {
                 generatePrintTyped(call, "FLOAT", method);
                 return "VOID";
             }
+            case "not" -> {
+                generateExpression(call.getArguments().getFirst(), method);
+                method.visitInsn(ICONST_1);
+                method.visitInsn(IXOR);
+                return "BOOL";
+            }
         }
 
         if (!functionTypes.containsKey(name)) {
@@ -673,11 +718,7 @@ public class CodeGenerator {
     }
 
     private void emitReadScanner(String scannerMethod, String returnDesc, MethodVisitor method) {
-        method.visitTypeInsn(NEW, "java/util/Scanner");
-        method.visitInsn(DUP);
-        method.visitFieldInsn(GETSTATIC, "java/lang/System", "in", "Ljava/io/InputStream;");
-        method.visitMethodInsn(INVOKESPECIAL, "java/util/Scanner", "<init>",
-                "(Ljava/io/InputStream;)V", false);
+        method.visitFieldInsn(GETSTATIC, currentClassName, "__scanner__", "Ljava/util/Scanner;");
         method.visitMethodInsn(INVOKEVIRTUAL, "java/util/Scanner", scannerMethod,
                 "()" + returnDesc, false);
     }
@@ -784,6 +825,34 @@ public class CodeGenerator {
         String op       = binary.getOperator();
         String exprKind = binary.getType();
 
+        if ("&&".equals(op)) {
+            String leftType = generateExpression(binary.getLeft(), method);
+            Label falseLabel = new Label(), endLabel = new Label();
+            method.visitJumpInsn(IFEQ, falseLabel);
+            generateExpression(binary.getRight(), method);
+            method.visitJumpInsn(IFEQ, falseLabel);
+            method.visitInsn(ICONST_1);
+            method.visitJumpInsn(GOTO, endLabel);
+            method.visitLabel(falseLabel);
+            method.visitInsn(ICONST_0);
+            method.visitLabel(endLabel);
+            return "BOOL";
+        }
+
+        if ("||".equals(op)) {
+            generateExpression(binary.getLeft(), method);
+            Label trueLabel = new Label(), endLabel = new Label();
+            method.visitJumpInsn(IFNE, trueLabel);
+            generateExpression(binary.getRight(), method);
+            method.visitJumpInsn(IFNE, trueLabel);
+            method.visitInsn(ICONST_0);
+            method.visitJumpInsn(GOTO, endLabel);
+            method.visitLabel(trueLabel);
+            method.visitInsn(ICONST_1);
+            method.visitLabel(endLabel);
+            return "BOOL";
+        }
+
         String leftType  = generateExpression(binary.getLeft(),  method);
         String rightType = generateExpression(binary.getRight(), method);
 
@@ -791,9 +860,11 @@ public class CodeGenerator {
             method.visitInsn(I2F);
             rightType = "FLOAT";
         } else if ("INT".equals(leftType) && "FLOAT".equals(rightType)) {
-            method.visitInsn(SWAP);
+            int tmpSlot = nextSlot++;
+            method.visitVarInsn(FSTORE, tmpSlot);
             method.visitInsn(I2F);
-            method.visitInsn(SWAP);
+            method.visitVarInsn(FLOAD, tmpSlot);
+            nextSlot--;
             leftType = "FLOAT";
         }
 
@@ -872,23 +943,11 @@ public class CodeGenerator {
 
     private String generateBoolBinary(String op, MethodVisitor method) {
         return switch (op) {
-            case "&&" -> generateShortCircuitAnd(method);
-            case "||" -> generateShortCircuitOr(method);
             case "==" -> generateIntComparison(IF_ICMPEQ, method);
             case "=/=", "!=" -> generateIntComparison(IF_ICMPNE, method);
             default -> throw new RuntimeException(
                     "CodeGenerationError: unsupported BOOL operator: " + op);
         };
-    }
-
-    private String generateShortCircuitAnd(MethodVisitor method) {
-        method.visitInsn(IAND);
-        return "BOOL";
-    }
-
-    private String generateShortCircuitOr(MethodVisitor method) {
-        method.visitInsn(IOR);
-        return "BOOL";
     }
 
     private String generateZeroComparison(int jumpOpcode, MethodVisitor method) {

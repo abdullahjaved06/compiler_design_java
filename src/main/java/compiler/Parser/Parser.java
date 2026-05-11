@@ -307,6 +307,7 @@ public class Parser {
 
         return new AssignmentNode(typeStr, id, rhs);
     }
+
     private ASTNode parseFunctionCallAfterName(String name) {
         match(TokenType.LPAREN);
 
@@ -327,36 +328,20 @@ public class Parser {
     }
 
     private ASTNode parseAssignmentAfterName(String id) {
-        if (currentSymbol.getType() == TokenType.LBRACKET) {
-            advance();
-            ASTNode index = parseExpression();
-            match(TokenType.RBRACKET);
+        ASTNode target = new IdentifierNode(id);
 
+        while (currentSymbol.getType() == TokenType.DOT || currentSymbol.getType() == TokenType.LBRACKET) {
             if (currentSymbol.getType() == TokenType.DOT) {
                 advance();
                 String fieldName = currentSymbol.getValue();
                 match(TokenType.IDENTIFIER);
-                match(TokenType.ASSIGN);
-                ASTNode value = parseExpression();
-                match(TokenType.SEMICOLON);
-                ASTNode target = new IndexAccessNode(new IdentifierNode(id), index);
-                return new FieldStoreNode(target, fieldName, value);
+                target = new MemberAccessNode(target, fieldName);
+            } else {
+                advance();
+                ASTNode index = parseExpression();
+                match(TokenType.RBRACKET);
+                target = new IndexAccessNode(target, index);
             }
-
-            match(TokenType.ASSIGN);
-            ASTNode value = parseExpression();
-            match(TokenType.SEMICOLON);
-            return new ArrayStoreNode(new IdentifierNode(id), index, value);
-        }
-
-        if (currentSymbol.getType() == TokenType.DOT) {
-            advance();
-            String fieldName = currentSymbol.getValue();
-            match(TokenType.IDENTIFIER);
-            match(TokenType.ASSIGN);
-            ASTNode value = parseExpression();
-            match(TokenType.SEMICOLON);
-            return new FieldStoreNode(new IdentifierNode(id), fieldName, value);
         }
 
         if (currentSymbol.getType() == TokenType.SEMICOLON) {
@@ -367,7 +352,14 @@ public class Parser {
         match(TokenType.ASSIGN);
         ASTNode rhs = parseExpression();
         match(TokenType.SEMICOLON);
-        return new AssignmentNode(null, id, rhs);
+
+        if (target instanceof IndexAccessNode aa) {
+            return new ArrayStoreNode(aa.getArray(), aa.getIndex(), rhs);
+        } else if (target instanceof MemberAccessNode ma) {
+            return new FieldStoreNode(ma.getCollection(), ma.getMember(), rhs);
+        } else {
+            return new AssignmentNode(null, id, rhs);
+        }
     }
 
     public ASTNode parseExpression() {
@@ -548,7 +540,7 @@ public class Parser {
                 type == TokenType.READ_STRING || type == TokenType.PRINT ||
                 type == TokenType.PRINTLN || type == TokenType.FLOOR ||
                 type == TokenType.CEIL || type == TokenType.STR ||
-                type == TokenType.LENGTH || type == TokenType.WRITE;
+                type == TokenType.LENGTH || type == TokenType.WRITE || type == TokenType.NOT;
 
     }
 }

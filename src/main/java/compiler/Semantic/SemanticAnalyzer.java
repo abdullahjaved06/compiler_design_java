@@ -50,6 +50,7 @@ public class SemanticAnalyzer {
         functionRegistry.put("length",      new FunctionDef("INT", List.of("ANY")));
         functionRegistry.put("print_INT",   new FunctionDef(null, List.of("INT")));
         functionRegistry.put("print_FLOAT", new FunctionDef(null, List.of("FLOAT")));
+        functionRegistry.put("not",         new FunctionDef("BOOL", List.of("BOOL")));
     }
 
     public void analyze(ASTNode root) {
