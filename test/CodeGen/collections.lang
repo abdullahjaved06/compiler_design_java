@@ -1,0 +1,33 @@
+coll Point {
+    INT x;
+    INT y;
+}
+
+coll Rectangle {
+    Point topLeft;
+    Point bottomRight;
+}
+
+def INT area(Rectangle r) {
+    INT width = r.bottomRight.x - r.topLeft.x;
+    INT height = r.bottomRight.y - r.topLeft.y;
+    return width * height;
+}
+
+def main() {
+    Point p = Point(3, 7);
+    println(p.x);
+    println(p.y);
+
+    p.x = 10;
+    println(p.x);
+
+    Rectangle rect = Rectangle(Point(0, 0), Point(5, 4));
+    println(area(rect));
+}
+
+# Expected output:
+# 3
+# 7
+# 10
+# 20

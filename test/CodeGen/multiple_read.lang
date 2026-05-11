@@ -1,0 +1,8 @@
+def main() {
+    INT a = read_INT();
+    INT b = read_INT();
+    println(a + b);
+}
+
+# Input: 3\n4
+# Expected output: 7

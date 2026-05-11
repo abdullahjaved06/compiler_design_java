@@ -1,0 +1,29 @@
+def INT sumArray(INT[] arr) {
+    INT total = 0;
+    INT i = 0;
+    while (i < length(arr)) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+    return total;
+}
+
+def main() {
+    INT[] nums = INT ARRAY [5];
+    nums[0] = 10;
+    nums[1] = 20;
+    nums[2] = 30;
+    nums[3] = 40;
+    nums[4] = 50;
+
+    println(length(nums));
+    println(sumArray(nums));
+
+    nums[0] = 99;
+    println(sumArray(nums));
+}
+
+# Expected output:
+# 5
+# 150
+# 239

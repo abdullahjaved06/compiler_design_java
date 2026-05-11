@@ -1,0 +1,26 @@
+def INT factorial(INT n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+def INT fib(INT n) {
+    if (n <= 1) {
+        return n;
+    } else {
+        return fib(n - 1) + fib(n - 2);
+    }
+}
+
+def main() {
+    println(factorial(5));
+    println(factorial(1));
+    println(fib(10));
+}
+
+# Expected output:
+# 120
+# 1
+# 55

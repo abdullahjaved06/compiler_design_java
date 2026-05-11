@@ -1,0 +1,33 @@
+coll Student {
+    STRING name;
+    INT[] grades;
+}
+
+def INT average(INT[] arr) {
+    INT total = 0;
+    INT i = 0;
+    while (i < length(arr)) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+    return total / length(arr);
+}
+
+def main() {
+    INT[] g = INT ARRAY [3];
+    g[0] = 80;
+    g[1] = 90;
+    g[2] = 70;
+
+    Student s = Student("Alice", g);
+    println(s.name);
+    println(average(s.grades));
+
+    s.grades[1] = 100;
+    println(average(s.grades));
+}
+
+# Expected output:
+# Alice
+# 80
+# 83

@@ -1,0 +1,29 @@
+final INT base = 10;
+final INT limit = base * 3;
+final STRING greeting = "Hi";
+final BOOL flag = true;
+
+INT counter = base + 5;
+
+def INT getCounter() {
+    return counter;
+}
+
+def main() {
+    println(base);
+    println(limit);
+    println(greeting);
+    println(flag);
+    println(getCounter());
+
+    counter = counter + 1;
+    println(counter);
+}
+
+# Expected output:
+# 10
+# 30
+# Hi
+# true
+# 15
+# 16

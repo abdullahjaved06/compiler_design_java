@@ -1,0 +1,32 @@
+def main() {
+    INT i1 = 50;
+    INT i2 = 20;
+    println("Min INT (50, 20):");
+    println(min(i1, i2));
+    println("Max INT (50, 20):");
+    println(max(i1, i2));
+
+    FLOAT f1 = 12.5;
+    FLOAT f2 = 44.2;
+    println("Min FLOAT (12.5, 44.2):");
+    println(min(f1, f2));
+    println("Max FLOAT (12.5, 44.2):");
+    println(max(f1, f2));
+
+    INT m1 = 10;
+    FLOAT m2 = 5.5;
+    println("Min Mixed (10, 5.5):");
+    println(min(m1, m2));
+    println("Max Mixed (10, 5.5):");
+    println(max(m1, m2));
+
+    println("Min Mixed (3.3, 1):");
+    println(min(3.3, 1));
+    println("Max Mixed (3.3, 1):");
+    println(max(3.3, 1));
+
+    println("Min Negative (-100, -50):");
+    println(min(-100, -50));
+    println("Max Equal (15, 15):");
+    println(max(15, 15));
+}

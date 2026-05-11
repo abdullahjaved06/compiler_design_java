@@ -1,0 +1,23 @@
+def main() {
+    STRING hello = "Hello";
+    STRING world = " World";
+    STRING msg = hello + world;
+    println(msg);
+    println(length(msg));
+
+    BOOL eq = msg == "Hello World";
+    println(eq);
+
+    BOOL neq = hello =/= world;
+    println(neq);
+
+    INT code = 65;
+    println(str(code));
+}
+
+# Expected output:
+# Hello World
+# 11
+# true
+# true
+# A

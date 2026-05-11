@@ -1,0 +1,25 @@
+def FLOAT average(INT a, INT b) {
+    FLOAT sum = a + b;
+    return sum / 2.0;
+}
+
+def main() {
+    FLOAT x = 3 + 1.5;
+    println(x);
+
+    FLOAT y = 10 / 4.0;
+    println(y);
+
+    println(average(3, 7));
+
+    FLOAT f = 3.9;
+    println(floor(f));
+    println(ceil(f));
+}
+
+# Expected output:
+# 4.5
+# 2.5
+# 5.0
+# 3
+# 4

@@ -1,0 +1,27 @@
+def main() {
+    BOOL a = true;
+    BOOL b = false;
+
+    println(a && b);
+    println(a || b);
+    println(not(a));
+    println(not(b));
+
+    BOOL eq = a == b;
+    BOOL neq = a =/= b;
+    println(eq);
+    println(neq);
+
+    INT x = 5;
+    BOOL inRange = x > 0 && x < 10;
+    println(inRange);
+}
+
+# Expected output:
+# false
+# true
+# false
+# true
+# false
+# true
+# true

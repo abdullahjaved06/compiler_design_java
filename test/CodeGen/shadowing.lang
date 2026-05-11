@@ -1,0 +1,27 @@
+INT x = 100;
+
+def INT getX() {
+    return x;
+}
+
+def INT localX() {
+    INT x = 42;
+    return x;
+}
+
+def main() {
+    println(x);
+    println(getX());
+    println(localX());
+    println(x);
+
+    INT x = 999;
+    println(x);
+}
+
+# Expected output:
+# 100
+# 100
+# 42
+# 100
+# 999

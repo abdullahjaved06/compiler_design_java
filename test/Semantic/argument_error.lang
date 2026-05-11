@@ -1,0 +1,8 @@
+def INT square(INT v) {
+    return v*v;
+}
+def main() {
+    INT value = 2;
+    BOOL test = true;
+    INT result = square(test);
+}
