@@ -703,6 +703,32 @@ public class CodeGenerator {
                     return "FLOAT";
                 }
             }
+            case "abs" -> {
+                String argType = generateExpression(call.getArguments().getFirst(), method);
+                if ("INT".equals(argType)) {
+                    method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "abs", "(I)I", false);
+                    return "INT";
+                } else {
+                    method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "abs", "(F)F", false);
+                    return "FLOAT";
+                }
+            }
+            case "pow" -> {
+                String baseType = generateExpression(call.getArguments().getFirst(), method);
+                if ("INT".equals(baseType)) method.visitInsn(I2F);
+                method.visitInsn(F2D);
+                String expType = generateExpression(call.getArguments().get(1), method);
+                if ("INT".equals(expType)) method.visitInsn(I2F);
+                method.visitInsn(F2D);
+                method.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "pow", "(DD)D", false);
+                method.visitInsn(D2F);
+                return "FLOAT";
+            }
+            case "sort" -> {
+                generateExpression(call.getArguments().getFirst(), method);
+                method.visitMethodInsn(INVOKESTATIC, "java/util/Arrays", "sort", "([I)V", false);
+                return "VOID";
+            }
         }
 
         if (!functionTypes.containsKey(name)) {

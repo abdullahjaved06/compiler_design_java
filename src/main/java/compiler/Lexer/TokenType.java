@@ -78,6 +78,9 @@ public enum TokenType {
     MAIN,
     MIN,
     MAX,
+    ABS,
+    POW,
+    SORT,
 
     // === SPECIAL ===
     EOF,                // End of file

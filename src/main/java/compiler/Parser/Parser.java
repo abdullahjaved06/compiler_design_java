@@ -538,9 +538,11 @@ public class Parser {
     private boolean isInbuiltFunction(TokenType type) {
         return type == TokenType.READ_INT || type == TokenType.READ_FLOAT ||
                 type == TokenType.READ_STRING || type == TokenType.PRINT ||
-                type == TokenType.PRINTLN || type == TokenType.FLOOR ||
+                type == TokenType.PRINTLN || type == TokenType.PRINT_INT||
+                type == TokenType.PRINT_FLOAT || type == TokenType.FLOOR ||
                 type == TokenType.CEIL || type == TokenType.STR ||
                 type == TokenType.LENGTH || type == TokenType.WRITE ||
-                type == TokenType.NOT || type == TokenType.MIN || type == TokenType.MAX;
+                type == TokenType.NOT || type == TokenType.MIN || type == TokenType.MAX ||
+                type == TokenType.ABS || type == TokenType.POW || type == TokenType.SORT;
     }
 }

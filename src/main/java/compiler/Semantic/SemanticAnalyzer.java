@@ -53,6 +53,9 @@ public class SemanticAnalyzer {
         functionRegistry.put("not",         new FunctionDef("BOOL", List.of("BOOL")));
         functionRegistry.put("min",         new FunctionDef("ANY", List.of("ANY", "ANY")));
         functionRegistry.put("max",         new FunctionDef("ANY", List.of("ANY", "ANY")));
+        functionRegistry.put("abs",         new FunctionDef("ANY",  List.of("ANY")));
+        functionRegistry.put("pow",         new FunctionDef("FLOAT", List.of("FLOAT", "FLOAT")));
+        functionRegistry.put("sort",        new FunctionDef("VOID", List.of("ANY[]")));
     }
 
     public void analyze(ASTNode root) {
@@ -386,6 +389,32 @@ public class SemanticAnalyzer {
             }
 
             return ("FLOAT".equals(leftType) || "FLOAT".equals(rightType)) ? "FLOAT" : "INT";
+        }
+
+        if (name.equals("abs")) {
+            String argType = inferType(args.getFirst());
+            if (!argType.equals("INT") && !argType.equals("FLOAT")) {
+                throw new RuntimeException("ArgumentError: abs() requires INT or FLOAT, got " + argType);
+            }
+            return argType; // returns same type as input
+        }
+
+        if (name.equals("pow")) {
+            String base = inferType(args.get(0));
+            String exp  = inferType(args.get(1));
+            if ((!base.equals("FLOAT") && !base.equals("INT")) ||
+                    (!exp.equals("FLOAT")  && !exp.equals("INT"))) {
+                throw new RuntimeException("ArgumentError: pow() requires numeric arguments.");
+            }
+            return "FLOAT";
+        }
+
+        if (name.equals("sort")) {
+            String argType = inferType(args.getFirst());
+            if (!argType.equals("INT[]")) {
+                throw new RuntimeException("ArgumentError: sort() requires an INT[], got " + argType);
+            }
+            return "VOID";
         }
 
         FunctionDef def = functionRegistry.get(name);

@@ -42,6 +42,9 @@ public class Lexer {
         keywords.put("main", TokenType.MAIN);
         keywords.put("min", TokenType.MIN);
         keywords.put("max", TokenType.MAX);
+        keywords.put("abs", TokenType.ABS);
+        keywords.put("pow", TokenType.POW);
+        keywords.put("sort", TokenType.SORT);
     }
     public Lexer(Reader input) {
         this.input = input;
